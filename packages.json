@@ -1,0 +1,15 @@
+{
+    "repositories": [
+        {
+            "type": "package",
+            "package": {
+                "name": "christopher-johnson/phabricator",
+                "version": "1.0.0",
+                "dist": {
+                    "url": "https://github.com/christopher-johnson/phabricator.git",
+                    "type": "git"
+                }
+                         }
+        }
+    ]
+ }
