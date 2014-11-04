@@ -12,10 +12,7 @@
     "support": {
         "issues": "https://secure.phabricator.com/"
     },
-    "require": {
-        "php": ">=5.3.2"
-    },
-    "repositories": [
+     "repositories": [
         {
             "type": "package",
             "package": {
@@ -31,5 +28,8 @@
                 }
             }
         }
-    ]
+    ],
+    "require": {
+        "christopher-johnson/phabricator": "*"
+    }
 }
