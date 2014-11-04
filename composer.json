@@ -11,25 +11,5 @@
     "license": "GPL-3.0",
     "support": {
         "issues": "https://secure.phabricator.com/"
-    },
-     "repositories": [
-        {
-            "type": "package",
-            "package": {
-                "name": "christopher-johnson/phabricator",
-                "dist": {
-                    "url": "https://github.com/christopher-johnson/phabricator/archive/master.zip",
-                    "type": "zip"
-                },
-                "source": {
-                    "url": "https://github.com/christopher-johnson/phabricator.git",
-                    "type": "git",
-                    "reference": "master"
-                }
-            }
-        }
-    ],
-    "require": {
-        "christopher-johnson/phabricator": "*"
     }
-}
+   }
