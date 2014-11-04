@@ -11,5 +11,6 @@
     "license": "GPL-3.0",
     "support": {
         "issues": "https://secure.phabricator.com/"
-    }
+    },
+    "version": "master"
    }
