@@ -4,10 +4,14 @@
             "type": "package",
             "package": {
                 "name": "christopher-johnson/phabricator",
-                "version": "1.0.0",
                 "dist": {
+                    "url": "https://github.com/christopher-johnson/phabricator/archive/master.zip",
+                    "type": "zip"
+                },
+                "source": {
                     "url": "https://github.com/christopher-johnson/phabricator.git",
-                    "type": "git"
+                    "type": "git",
+                    "reference": "master"
                 }
                          }
         }
