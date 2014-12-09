@@ -162,12 +162,23 @@ final class AlmanacDevice
     return new AlmanacDeviceTransaction();
   }
 
+  public function willRenderTimeline(
+    PhabricatorApplicationTransactionView $timeline,
+    AphrontRequest $request) {
+
+    return $timeline;
+  }
+
 
 /* -(  PhabricatorSSHPublicKeyInterface  )----------------------------------- */
 
 
   public function getSSHPublicKeyManagementURI(PhabricatorUser $viewer) {
     return $this->getURI();
+  }
+
+  public function getSSHKeyDefaultName() {
+    return $this->getName();
   }
 
 
