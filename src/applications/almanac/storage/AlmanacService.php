@@ -14,9 +14,12 @@ final class AlmanacService
   protected $mailKey;
   protected $viewPolicy;
   protected $editPolicy;
+  protected $serviceClass;
 
   private $customFields = self::ATTACHABLE;
   private $almanacProperties = self::ATTACHABLE;
+  private $bindings = self::ATTACHABLE;
+  private $serviceType = self::ATTACHABLE;
 
   public static function initializeNewService() {
     return id(new AlmanacService())
@@ -32,6 +35,7 @@ final class AlmanacService
         'name' => 'text128',
         'nameIndex' => 'bytes12',
         'mailKey' => 'bytes20',
+        'serviceClass' => 'text64',
       ),
       self::CONFIG_KEY_SCHEMA => array(
         'key_name' => array(
@@ -40,6 +44,9 @@ final class AlmanacService
         ),
         'key_nametext' => array(
           'columns' => array('name'),
+        ),
+        'key_class' => array(
+          'columns' => array('serviceClass'),
         ),
       ),
     ) + parent::getConfiguration();
@@ -63,6 +70,24 @@ final class AlmanacService
 
   public function getURI() {
     return '/almanac/service/view/'.$this->getName().'/';
+  }
+
+  public function getBindings() {
+    return $this->assertAttached($this->bindings);
+  }
+
+  public function attachBindings(array $bindings) {
+    $this->bindings = $bindings;
+    return $this;
+  }
+
+  public function getServiceType() {
+    return $this->assertAttached($this->serviceType);
+  }
+
+  public function attachServiceType(AlmanacServiceType $type) {
+    $this->serviceType = $type;
+    return $this;
   }
 
 
@@ -94,6 +119,10 @@ final class AlmanacService
     } else {
       return $default;
     }
+  }
+
+  public function getAlmanacPropertyFieldSpecifications() {
+    return $this->getServiceType()->getFieldSpecifications();
   }
 
 
