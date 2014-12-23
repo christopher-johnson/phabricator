@@ -7,7 +7,8 @@ final class AlmanacService
     PhabricatorCustomFieldInterface,
     PhabricatorApplicationTransactionInterface,
     PhabricatorProjectInterface,
-    AlmanacPropertyInterface {
+    AlmanacPropertyInterface,
+    PhabricatorDestructibleInterface {
 
   protected $name;
   protected $nameIndex;
@@ -15,6 +16,7 @@ final class AlmanacService
   protected $viewPolicy;
   protected $editPolicy;
   protected $serviceClass;
+  protected $isLocked;
 
   private $customFields = self::ATTACHABLE;
   private $almanacProperties = self::ATTACHABLE;
@@ -25,7 +27,8 @@ final class AlmanacService
     return id(new AlmanacService())
       ->setViewPolicy(PhabricatorPolicies::POLICY_USER)
       ->setEditPolicy(PhabricatorPolicies::POLICY_ADMIN)
-      ->attachAlmanacProperties(array());
+      ->attachAlmanacProperties(array())
+      ->setIsLocked(0);
   }
 
   public function getConfiguration() {
@@ -36,6 +39,7 @@ final class AlmanacService
         'nameIndex' => 'bytes12',
         'mailKey' => 'bytes20',
         'serviceClass' => 'text64',
+        'isLocked' => 'bool',
       ),
       self::CONFIG_KEY_SCHEMA => array(
         'key_name' => array(
@@ -141,7 +145,11 @@ final class AlmanacService
       case PhabricatorPolicyCapability::CAN_VIEW:
         return $this->getViewPolicy();
       case PhabricatorPolicyCapability::CAN_EDIT:
-        return $this->getEditPolicy();
+        if ($this->getIsLocked()) {
+          return PhabricatorPolicies::POLICY_NOONE;
+        } else {
+          return $this->getEditPolicy();
+        }
     }
   }
 
@@ -150,6 +158,14 @@ final class AlmanacService
   }
 
   public function describeAutomaticCapability($capability) {
+    switch ($capability) {
+      case PhabricatorPolicyCapability::CAN_EDIT:
+        if ($this->getIsLocked()) {
+          return pht('This service is locked and can not be edited.');
+        }
+        break;
+    }
+
     return null;
   }
 
@@ -195,6 +211,24 @@ final class AlmanacService
     AphrontRequest $request) {
 
     return $timeline;
+  }
+
+
+/* -(  PhabricatorDestructibleInterface  )----------------------------------- */
+
+
+  public function destroyObjectPermanently(
+    PhabricatorDestructionEngine $engine) {
+
+    $bindings = id(new AlmanacBindingQuery())
+      ->setViewer(PhabricatorUser::getOmnipotentUser())
+      ->withServicePHIDs(array($this->getPHID()))
+      ->execute();
+    foreach ($bindings as $binding) {
+      $engine->destroyObject($binding);
+    }
+
+    $this->delete();
   }
 
 }
