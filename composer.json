@@ -1,0 +1,16 @@
+{
+    "name": "phabricator/phabricator",
+    "description": "Phabricator is an open source collection of web applications which help software companies build better software",
+    "keywords": ["phabricator"],
+    "homepage": "https://secure.phabricator.com/",
+    "authors": [
+        {
+            "name": "Evan Priestley"
+        }
+    ],
+    "license": "GPL-3.0",
+    "support": {
+        "issues": "https://secure.phabricator.com/"
+    },
+    "version": "1.0.1"
+   }

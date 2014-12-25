@@ -26,7 +26,7 @@ If you don't have Composer [install](http://getcomposer.org/doc/00-intro.md#inst
 
     $ curl -s https://getcomposer.org/installer | php
 
-Add this to your `composer.json`: 
+Add this to your `packages.json`: 
 
     {
         "require": {
@@ -104,7 +104,7 @@ And then `require` all bootstrap files:
         "require": {
             "balanced/balanced": "*"
          }
-    }' > composer.json
+    }' > packages.json
 
     php composer.phar install
 
@@ -132,7 +132,7 @@ Or if you'd like to skip network calls:
 ## Publishing
 
 1. Ensure that **all** [tests](#testing) pass
-2. Increment minor `VERSION` in `src/Balanced/Settings` and `composer.json` (`git commit -am 'v{VERSION} release'`)
+2. Increment minor `VERSION` in `src/Balanced/Settings` and `packages.json` (`git commit -am 'v{VERSION} release'`)
 3. Tag it (`git tag -a v{VERSION} -m 'v{VERSION} release'`)
 4. Push the tag (`git push --tag`)
 5. [Packagist](http://packagist.org/packages/balanced/balanced) will see the new tag and take it from there

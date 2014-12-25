@@ -40,7 +40,7 @@ A [PHP Archive](http://php.net/manual/en/book.phar.php) (or .phar) file is avail
 
 ## Composer
 
-Httpful is PSR-0 compliant and can be installed using [composer](http://getcomposer.org/).  Simply add `nategood/httpful` to your composer.json file.  _Composer is the sane alternative to PEAR.  It is excellent for managing dependancies in larger projects_.
+Httpful is PSR-0 compliant and can be installed using [composer](http://getcomposer.org/).  Simply add `nategood/httpful` to your packages.json file.  _Composer is the sane alternative to PEAR.  It is excellent for managing dependancies in larger projects_.
 
     {
         "require": {
