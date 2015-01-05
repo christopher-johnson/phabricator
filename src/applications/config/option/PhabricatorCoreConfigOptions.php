@@ -27,6 +27,7 @@ final class PhabricatorCoreConfigOptions
     $proto_doc_href = PhabricatorEnv::getDoclink(
       'User Guide: Prototype Applications');
     $proto_doc_name = pht('User Guide: Prototype Applications');
+    $applications_app_href = '/applications/';
 
     return array(
       $this->newOption('phabricator.base-uri', 'string', null)
@@ -91,6 +92,7 @@ final class PhabricatorCoreConfigOptions
             'create a collision preventing you from logging in.'))
         ->addExample('dev', pht('Prefix cookie with "dev"')),
       $this->newOption('phabricator.show-prototypes', 'bool', false)
+        ->setLocked(true)
         ->setBoolOptions(
           array(
             pht('Enable Prototypes'),
@@ -183,6 +185,14 @@ final class PhabricatorCoreConfigOptions
         ->setDescription(pht('Unit test value.')),
       $this->newOption('phabricator.uninstalled-applications', 'set', array())
         ->setLocked(true)
+        ->setLockedMessage(pht(
+          'Use the %s to manage installed applications.',
+          phutil_tag(
+            'a',
+            array(
+              'href' => $applications_app_href,
+            ),
+            pht('Applications application'))))
         ->setDescription(
           pht('Array containing list of Uninstalled applications.')),
       $this->newOption('phabricator.application-settings', 'wild', array())

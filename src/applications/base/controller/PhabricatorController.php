@@ -102,7 +102,7 @@ abstract class PhabricatorController extends AphrontController {
       $translation = newv($translation, array());
       PhutilTranslator::getInstance()
         ->setLanguage($translation->getLanguage())
-        ->addTranslations($translation->getTranslations());
+        ->addTranslations($translation->getCleanTranslations());
     }
 
     $preferences = $user->loadPreferences();
@@ -524,6 +524,54 @@ abstract class PhabricatorController extends AphrontController {
     return id(new AphrontDialogView())
       ->setUser($this->getRequest()->getUser())
       ->setSubmitURI($submit_uri);
+  }
+
+  protected function buildTransactionTimeline(
+    PhabricatorApplicationTransactionInterface $object,
+    PhabricatorApplicationTransactionQuery $query,
+    PhabricatorMarkupEngine $engine = null,
+    $render_data = array()) {
+
+    $viewer = $this->getRequest()->getUser();
+    $xaction = $object->getApplicationTransactionTemplate();
+    $view = $xaction->getApplicationTransactionViewObject();
+
+    $pager = id(new AphrontCursorPagerView())
+      ->readFromRequest($this->getRequest())
+      ->setURI(new PhutilURI(
+        '/transactions/showolder/'.$object->getPHID().'/'));
+
+    $xactions = $query
+      ->setViewer($viewer)
+      ->withObjectPHIDs(array($object->getPHID()))
+      ->needComments(true)
+      ->setReversePaging(false)
+      ->executeWithCursorPager($pager);
+    $xactions = array_reverse($xactions);
+
+    if ($engine) {
+      foreach ($xactions as $xaction) {
+        if ($xaction->getComment()) {
+          $engine->addObject(
+            $xaction->getComment(),
+            PhabricatorApplicationTransactionComment::MARKUP_FIELD_COMMENT);
+        }
+      }
+      $engine->process();
+      $view->setMarkupEngine($engine);
+    }
+
+    $timeline = $view
+      ->setUser($viewer)
+      ->setObjectPHID($object->getPHID())
+      ->setTransactions($xactions)
+      ->setPager($pager)
+      ->setRenderData($render_data)
+      ->setQuoteTargetID($this->getRequest()->getStr('quoteTargetID'))
+      ->setQuoteRef($this->getRequest()->getStr('quoteRef'));
+    $object->willRenderTimeline($timeline, $this->getRequest());
+
+    return $timeline;
   }
 
 }

@@ -102,6 +102,35 @@ abstract class PhabricatorRepositoryCommitMessageParserWorker
 
     $conn_w = id(new DifferentialRevision())->establishConnection('w');
 
+    $reverts_refs = id(new DifferentialCustomFieldRevertsParser())
+      ->parseCorpus($message);
+    $reverts = array_mergev(ipull($reverts_refs, 'monograms'));
+
+    if ($reverts) {
+      $reverted_commits = id(new DiffusionCommitQuery())
+        ->setViewer($actor)
+        ->withIdentifiers($reverts)
+        ->execute();
+      $reverted_commit_phids = mpull($reverted_commits, 'getPHID', 'getPHID');
+
+      // NOTE: Skip any write attempts if a user cleverly implies a commit
+      // reverts itself.
+      unset($reverted_commit_phids[$commit->getPHID()]);
+
+      $editor = new PhabricatorEdgeEditor();
+      foreach ($reverted_commit_phids as $commit_phid) {
+        try {
+          $editor->addEdge(
+            $commit->getPHID(),
+            DiffusionCommitRevertsCommitEdgeType::EDGECONST,
+            $commit_phid);
+        } catch (PhabricatorEdgeCycleException $ex) {
+          continue;
+        }
+      }
+      $editor->save();
+    }
+
     // NOTE: The `differential_commit` table has a unique ID on `commitPHID`,
     // preventing more than one revision from being associated with a commit.
     // Generally this is good and desirable, but with the advent of hash
@@ -126,7 +155,7 @@ abstract class PhabricatorRepositoryCommitMessageParserWorker
             'precommitRevisionStatus',
             $revision->getStatus());
         }
-        $commit_drev = PhabricatorEdgeConfig::TYPE_COMMIT_HAS_DREV;
+        $commit_drev = DiffusionCommitHasRevisionEdgeType::EDGECONST;
         id(new PhabricatorEdgeEditor())
           ->addEdge($commit->getPHID(), $commit_drev, $revision->getPHID())
           ->save();
@@ -265,7 +294,7 @@ abstract class PhabricatorRepositoryCommitMessageParserWorker
       $changes = array();
     }
 
-    $diff = DifferentialDiff::newFromRawChanges($changes)
+    $diff = DifferentialDiff::newFromRawChanges($viewer, $changes)
       ->setRepositoryPHID($this->repository->getPHID())
       ->setAuthorPHID($actor_phid)
       ->setCreationMethod('commit')
@@ -459,6 +488,7 @@ abstract class PhabricatorRepositoryCommitMessageParserWorker
     $tasks = id(new ManiphestTaskQuery())
       ->setViewer($actor)
       ->withIDs(array_keys($task_statuses))
+      ->needProjectPHIDs(true)
       ->execute();
 
     foreach ($tasks as $task_id => $task) {

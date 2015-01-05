@@ -31,6 +31,10 @@ final class DifferentialTransaction extends PhabricatorApplicationTransaction {
     return new DifferentialTransactionComment();
   }
 
+  public function getApplicationTransactionViewObject() {
+    return new DifferentialTransactionView();
+  }
+
   public function shouldHide() {
     $old = $this->getOldValue();
     $new = $this->getNewValue();
@@ -197,7 +201,7 @@ final class DifferentialTransaction extends PhabricatorApplicationTransaction {
         break;
       case PhabricatorTransactions::TYPE_EDGE:
         switch ($this->getMetadataValue('edge:type')) {
-          case PhabricatorEdgeConfig::TYPE_DREV_HAS_REVIEWER:
+          case DifferentialRevisionHasReviewerEdgeType::EDGECONST:
             $tags[] = MetaMTANotificationType::TYPE_DIFFERENTIAL_REVIEWERS;
             break;
         }
@@ -322,7 +326,7 @@ final class DifferentialTransaction extends PhabricatorApplicationTransaction {
     return parent::renderExtraInformationLink();
   }
 
-  public function getTitleForFeed(PhabricatorFeedStory $story) {
+  public function getTitleForFeed() {
     $author_phid = $this->getAuthorPHID();
     $object_phid = $this->getObjectPHID();
 
@@ -448,7 +452,7 @@ final class DifferentialTransaction extends PhabricatorApplicationTransaction {
         }
     }
 
-    return parent::getTitleForFeed($story);
+    return parent::getTitleForFeed();
   }
 
   public function getIcon() {
@@ -491,7 +495,7 @@ final class DifferentialTransaction extends PhabricatorApplicationTransaction {
         }
       case PhabricatorTransactions::TYPE_EDGE:
         switch ($this->getMetadataValue('edge:type')) {
-          case PhabricatorEdgeConfig::TYPE_DREV_HAS_REVIEWER:
+          case DifferentialRevisionHasReviewerEdgeType::EDGECONST:
             return 'fa-user';
         }
     }
@@ -567,7 +571,7 @@ final class DifferentialTransaction extends PhabricatorApplicationTransaction {
     switch ($this->getTransactionType()) {
       case PhabricatorTransactions::TYPE_EDGE:
         switch ($this->getMetadataValue('edge:type')) {
-          case PhabricatorEdgeConfig::TYPE_DREV_HAS_REVIEWER:
+          case DifferentialRevisionHasReviewerEdgeType::EDGECONST:
             return pht(
               'The reviewers you are trying to add are already reviewing '.
               'this revision.');
