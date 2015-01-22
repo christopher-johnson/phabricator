@@ -43,6 +43,12 @@ var debug = new JX.AphlictLog()
 
 var config = parse_command_line_arguments(process.argv);
 
+function set_exit_code(code) {
+  process.on('exit', function() {
+    process.exit(code);
+  });
+}
+
 process.on('uncaughtException', function(err) {
   var context = null;
   if (err.code == 'EACCES' && err.path == config.log) {
@@ -61,7 +67,13 @@ process.on('uncaughtException', function(err) {
   message.push(err.stack);
 
   debug.log(message.join('\n\n'));
+  set_exit_code(1);
 });
+
+// Add the logfile so we'll fail if we can't write to it.
+if (config.log) {
+  debug.addLog(config.log);
+}
 
 try {
   require('ws');
@@ -89,16 +101,12 @@ if (ssl_config.enabled) {
   ssl_config.cert = fs.readFileSync(config['ssl-cert']);
 }
 
-// Add the logfile so we'll fail if we can't write to it.
-if (config.log) {
-  debug.addLog(config.log);
-}
-
 // If we're just doing a configuration test, exit here before starting any
 // servers.
 if (config.test) {
   debug.log('Configuration test OK.');
-  process.exit(0);
+  set_exit_code(0);
+  return;
 }
 
 var server;
