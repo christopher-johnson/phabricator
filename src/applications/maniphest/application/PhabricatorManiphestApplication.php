@@ -14,8 +14,12 @@ final class PhabricatorManiphestApplication extends PhabricatorApplication {
     return '/maniphest/';
   }
 
-  public function getIconName() {
-    return 'maniphest';
+  public function getFontIcon() {
+    return 'fa-anchor';
+  }
+
+  public function getTitleGlyph() {
+    return "\xE2\x9A\x93";
   }
 
   public function isPinnedByDefault(PhabricatorUser $viewer) {

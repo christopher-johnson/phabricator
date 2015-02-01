@@ -18,8 +18,8 @@ final class PhabricatorPeopleApplication extends PhabricatorApplication {
     return "\xE2\x99\x9F";
   }
 
-  public function getIconName() {
-    return 'people';
+  public function getFontIcon() {
+    return 'fa-users';
   }
 
   public function isPinnedByDefault(PhabricatorUser $viewer) {
