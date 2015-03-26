@@ -114,7 +114,7 @@ abstract class AphrontApplicationConfiguration {
         'U' => (string)$request->getRequestURI()->getPath(),
       ));
 
-    $write_guard = new AphrontWriteGuard(array($request, 'validateCSRF'));
+   $write_guard = new AphrontWriteGuard(array($request, 'validateCSRF'));
 
     $processing_exception = null;
     try {
@@ -125,7 +125,7 @@ abstract class AphrontApplicationConfiguration {
       $response_code = 500;
     }
 
-    $write_guard->dispose();
+   $write_guard->dispose();
 
     $access_log->setData(
       array(

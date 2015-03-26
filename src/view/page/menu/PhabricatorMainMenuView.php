@@ -240,7 +240,7 @@ final class PhabricatorMainMenuView extends AphrontView {
     $custom_header = PhabricatorEnv::getEnvConfig('ui.custom-header');
     if ($custom_header) {
       $cache = PhabricatorCaches::getImmutableCache();
-      $cache_key_logo = 'ui.custom-header.logo-phid.v1';
+      $cache_key_logo = 'ui.custom-header.logo-phid.v1.'.$custom_header;
       $logo_uri = $cache->getKey($cache_key_logo);
       if (!$logo_uri) {
         $file = id(new PhabricatorFileQuery())
@@ -375,6 +375,7 @@ final class PhabricatorMainMenuView extends AphrontView {
           'uri'         => '/conpherence/panel/',
           'countType'   => 'messages',
           'countNumber' => $message_count_number,
+          'unreadClass' => 'message-unread',
         ));
 
       $message_notification_dropdown = javelin_tag(
@@ -458,6 +459,7 @@ final class PhabricatorMainMenuView extends AphrontView {
           'uri'         => '/notification/panel/',
           'countType'   => 'notifications',
           'countNumber' => $count_number,
+          'unreadClass' => 'alert-unread',
         ));
 
       $notification_dropdown = javelin_tag(
