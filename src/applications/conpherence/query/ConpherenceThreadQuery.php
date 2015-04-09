@@ -82,10 +82,11 @@ final class ConpherenceThreadQuery
 
     $data = queryfx_all(
       $conn_r,
-      'SELECT conpherence_thread.* FROM %T conpherence_thread %Q %Q %Q %Q',
+      'SELECT conpherence_thread.* FROM %T conpherence_thread %Q %Q %Q %Q %Q',
       $table->getTableName(),
       $this->buildJoinClause($conn_r),
       $this->buildWhereClause($conn_r),
+      $this->buildGroupClause($conn_r),
       $this->buildOrderClause($conn_r),
       $this->buildLimitClause($conn_r));
 
@@ -131,8 +132,28 @@ final class ConpherenceThreadQuery
         id(new ConpherenceParticipant())->getTableName());
     }
 
+    $viewer = $this->getViewer();
+    if ($this->shouldJoinForViewer($viewer)) {
+      $joins[] = qsprintf(
+        $conn_r,
+        'LEFT JOIN %T v ON v.conpherencePHID = conpherence_thread.phid '.
+        'AND v.participantPHID = %s',
+        id(new ConpherenceParticipant())->getTableName(),
+        $viewer->getPHID());
+    }
+
+
     $joins[] = $this->buildApplicationSearchJoinClause($conn_r);
     return implode(' ', $joins);
+  }
+
+  private function shouldJoinForViewer(PhabricatorUser $viewer) {
+    if ($viewer->isLoggedIn() &&
+      $this->ids === null &&
+      $this->phids === null) {
+      return true;
+    }
+    return false;
   }
 
   protected function buildWhereClause($conn_r) {
@@ -166,6 +187,17 @@ final class ConpherenceThreadQuery
         $conn_r,
         'conpherence_thread.isRoom = %d',
         (int)$this->isRoom);
+    }
+
+    $viewer = $this->getViewer();
+    if ($this->shouldJoinForViewer($viewer)) {
+      $where[] = qsprintf(
+        $conn_r,
+        'conpherence_thread.isRoom = 1 OR v.participantPHID IS NOT NULL');
+    } else if ($this->phids === null && $this->ids === null) {
+      $where[] = qsprintf(
+        $conn_r,
+        'conpherence_thread.isRoom = 1');
     }
 
     return $this->formatWhereClause($where);

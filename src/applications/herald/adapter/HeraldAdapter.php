@@ -109,6 +109,16 @@ abstract class HeraldAdapter {
   private $customFields = false;
   private $customActions = null;
   private $queuedTransactions = array();
+  private $emailPHIDs = array();
+  private $forcedEmailPHIDs = array();
+
+  public function getEmailPHIDs() {
+    return array_values($this->emailPHIDs);
+  }
+
+  public function getForcedEmailPHIDs() {
+    return array_values($this->forcedEmailPHIDs);
+  }
 
   public function getCustomActions() {
     if ($this->customActions === null) {
@@ -994,11 +1004,8 @@ abstract class HeraldAdapter {
   public static function applyFlagEffect(HeraldEffect $effect, $phid) {
     $color = $effect->getTarget();
 
-    // TODO: Silly that we need to load this again here.
-    $rule = id(new HeraldRule())->load($effect->getRuleID());
-    $user = id(new PhabricatorUser())->loadOneWhere(
-      'phid = %s',
-      $rule->getAuthorPHID());
+    $rule = $effect->getRule();
+    $user = $rule->getAuthor();
 
     $flag = PhabricatorFlagQuery::loadUserFlag($user, $phid);
     if ($flag) {
@@ -1030,6 +1037,26 @@ abstract class HeraldAdapter {
       $effect,
       true,
       pht('Added flag.'));
+  }
+
+  protected function applyEmailEffect(HeraldEffect $effect) {
+
+    foreach ($effect->getTarget() as $phid) {
+      $this->emailPHIDs[$phid] = $phid;
+
+      // If this is a personal rule, we'll force delivery of a real email. This
+      // effect is stronger than notification preferences, so you get an actual
+      // email even if your preferences are set to "Notify" or "Ignore".
+      $rule = $effect->getRule();
+      if ($rule->isPersonalRule()) {
+        $this->forcedEmailPHIDs[$phid] = $phid;
+      }
+    }
+
+    return new HeraldApplyTranscript(
+      $effect,
+      true,
+      pht('Added mailable to mail targets.'));
   }
 
   public static function getAllAdapters() {
@@ -1074,8 +1101,9 @@ abstract class HeraldAdapter {
     return $map;
   }
 
-  public function renderRuleAsText(HeraldRule $rule, array $handles) {
-    assert_instances_of($handles, 'PhabricatorObjectHandle');
+  public function renderRuleAsText(
+    HeraldRule $rule,
+    PhabricatorHandleList $handles) {
 
     require_celerity_resource('herald-css');
 
@@ -1150,7 +1178,7 @@ abstract class HeraldAdapter {
 
   private function renderConditionAsText(
     HeraldCondition $condition,
-    array $handles) {
+    PhabricatorHandleList $handles) {
 
     $field_type = $condition->getFieldName();
 
@@ -1170,7 +1198,7 @@ abstract class HeraldAdapter {
 
   private function renderActionAsText(
     HeraldAction $action,
-    array $handles) {
+    PhabricatorHandleList $handles) {
     $rule_global = HeraldRuleTypeConfig::RULE_TYPE_GLOBAL;
 
     $action_type = $action->getAction();
@@ -1183,7 +1211,7 @@ abstract class HeraldAdapter {
 
   private function renderConditionValueAsText(
     HeraldCondition $condition,
-    array $handles) {
+    PhabricatorHandleList $handles) {
 
     $value = $condition->getValue();
     if (!is_array($value)) {
@@ -1220,7 +1248,7 @@ abstract class HeraldAdapter {
         break;
       default:
         foreach ($value as $index => $val) {
-          $handle = idx($handles, $val);
+          $handle = $handles->getHandleIfExists($val);
           if ($handle) {
             $value[$index] = $handle->renderLink();
           }
@@ -1233,7 +1261,7 @@ abstract class HeraldAdapter {
 
   private function renderActionTargetAsText(
     HeraldAction $action,
-    array $handles) {
+    PhabricatorHandleList $handles) {
 
     $target = $action->getTarget();
     if (!is_array($target)) {
@@ -1245,7 +1273,7 @@ abstract class HeraldAdapter {
           $target[$index] = PhabricatorFlagColor::getColorName($val);
           break;
         default:
-          $handle = idx($handles, $val);
+          $handle = $handles->getHandleIfExists($val);
           if ($handle) {
             $target[$index] = $handle->renderLink();
           }

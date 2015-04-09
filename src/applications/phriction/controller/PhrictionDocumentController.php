@@ -250,13 +250,9 @@ final class PhrictionDocumentController
       ->setUser($viewer)
       ->setObject($document);
 
-    $phids = array($content->getAuthorPHID());
-
-    $this->loadHandles($phids);
-
     $view->addProperty(
       pht('Last Author'),
-      $this->getHandle($content->getAuthorPHID())->renderLink());
+      $viewer->renderHandle($content->getAuthorPHID()));
 
     $age = time() - $content->getDateCreated();
     $age = floor($age / (60 * 60 * 24));
@@ -380,7 +376,8 @@ final class PhrictionDocumentController
       $child_dict = array(
         'slug' => $child->getSlug(),
         'depth' => $child->getDepth(),
-        'title' => $child->getContent()->getTitle(),);
+        'title' => $child->getContent()->getTitle(),
+      );
       if ($child->getDepth() == $d_child) {
         $children_dicts[] = $child_dict;
         continue;

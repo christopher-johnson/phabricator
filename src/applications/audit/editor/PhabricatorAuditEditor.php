@@ -6,7 +6,6 @@ final class PhabricatorAuditEditor
   const MAX_FILES_SHOWN_IN_EMAIL = 1000;
 
   private $auditReasonMap = array();
-  private $heraldEmailPHIDs = array();
   private $affectedFiles;
   private $rawPatch;
 
@@ -588,10 +587,8 @@ final class PhabricatorAuditEditor
     return $result;
   }
 
-
   protected function buildReplyHandler(PhabricatorLiskDAO $object) {
-    $reply_handler = PhabricatorEnv::newObjectFromConfig(
-      'metamta.diffusion.reply-handler');
+    $reply_handler = new PhabricatorAuditReplyHandler();
     $reply_handler->setMailReceiver($object);
     return $reply_handler;
   }
@@ -629,9 +626,6 @@ final class PhabricatorAuditEditor
 
   protected function getMailTo(PhabricatorLiskDAO $object) {
     $phids = array();
-    if ($this->heraldEmailPHIDs) {
-      $phids = $this->heraldEmailPHIDs;
-    }
 
     if ($object->getAuthorPHID()) {
       $phids[] = $object->getAuthorPHID();
@@ -925,8 +919,6 @@ final class PhabricatorAuditEditor
     $xactions[] = id(new PhabricatorAuditTransaction())
       ->setTransactionType(PhabricatorTransactions::TYPE_SUBSCRIBERS)
       ->setNewValue($add_ccs);
-
-    $this->heraldEmailPHIDs = $adapter->getEmailPHIDs();
 
     HarbormasterBuildable::applyBuildPlans(
       $object->getPHID(),
