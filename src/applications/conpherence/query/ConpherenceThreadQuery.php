@@ -9,6 +9,7 @@ final class ConpherenceThreadQuery
   private $ids;
   private $participantPHIDs;
   private $isRoom;
+  private $needParticipants;
   private $needWidgetData;
   private $needTransactions;
   private $needParticipantCache;
@@ -24,6 +25,11 @@ final class ConpherenceThreadQuery
 
   public function needParticipantCache($participant_cache) {
     $this->needParticipantCache = $participant_cache;
+    return $this;
+  }
+
+  public function needParticipants($need) {
+    $this->needParticipants = $need;
     return $this;
   }
 
@@ -97,7 +103,8 @@ final class ConpherenceThreadQuery
       $this->loadParticipantsAndInitHandles($conpherences);
       if ($this->needParticipantCache) {
         $this->loadCoreHandles($conpherences, 'getRecentParticipantPHIDs');
-      } else if ($this->needWidgetData) {
+      }
+      if ($this->needWidgetData || $this->needParticipants) {
         $this->loadCoreHandles($conpherences, 'getParticipantPHIDs');
       }
       if ($this->needTransactions) {
@@ -244,7 +251,8 @@ final class ConpherenceThreadQuery
       ->execute();
     foreach ($handle_phids as $conpherence_phid => $phids) {
       $conpherence = $conpherences[$conpherence_phid];
-      $conpherence->attachHandles(array_select_keys($handles, $phids));
+      $conpherence->attachHandles(
+        $conpherence->getHandles() + array_select_keys($handles, $phids));
     }
     return $this;
   }
