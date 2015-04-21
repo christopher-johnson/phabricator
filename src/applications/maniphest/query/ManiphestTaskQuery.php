@@ -73,9 +73,11 @@ final class ManiphestTaskQuery extends PhabricatorCursorPagedPolicyAwareQuery {
   }
 
   public function withOwners(array $owners) {
+    $no_owner = ManiphestNoOwnerDatasource::FUNCTION_TOKEN;
+
     $this->includeUnowned = false;
     foreach ($owners as $k => $phid) {
-      if ($phid == ManiphestTaskOwner::OWNER_UP_FOR_GRABS || $phid === null) {
+      if ($phid === $no_owner || $phid === null) {
         $this->includeUnowned = true;
         unset($owners[$k]);
         break;
@@ -837,7 +839,7 @@ final class ManiphestTaskQuery extends PhabricatorCursorPagedPolicyAwareQuery {
     return implode(' ', $joins);
   }
 
-  private function buildGroupClause(AphrontDatabaseConnection $conn_r) {
+  protected function buildGroupClause(AphrontDatabaseConnection $conn_r) {
     $joined_multiple_rows = (count($this->projectPHIDs) > 1) ||
                             (count($this->anyProjectPHIDs) > 1) ||
                             $this->shouldJoinBlockingTasks() ||

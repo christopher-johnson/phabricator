@@ -11,6 +11,7 @@ abstract class PhabricatorTypeaheadDatasource extends Phobject {
   private $offset;
   private $limit;
   private $parameters = array();
+  private $functionStack = array();
 
   public function setLimit($limit) {
     $this->limit = $limit;
@@ -87,8 +88,17 @@ abstract class PhabricatorTypeaheadDatasource extends Phobject {
   }
 
   abstract public function getPlaceholderText();
+
+  public function getBrowseTitle() {
+    return get_class($this);
+  }
+
   abstract public function getDatasourceApplicationClass();
   abstract public function loadResults();
+
+  protected function didLoadResults(array $results) {
+    return $results;
+  }
 
   public static function tokenizeString($string) {
     $string = phutil_utf8_strtolower($string);
@@ -199,14 +209,95 @@ abstract class PhabricatorTypeaheadDatasource extends Phobject {
       ->setTokenType(PhabricatorTypeaheadTokenView::TYPE_INVALID);
   }
 
+  public function renderTokens(array $values) {
+    $phids = array();
+    $setup = array();
+    $tokens = array();
+
+    foreach ($values as $key => $value) {
+      if (!self::isFunctionToken($value)) {
+        $phids[$key] = $value;
+      } else {
+        $function = $this->parseFunction($value);
+        if ($function) {
+          $setup[$function['name']][$key] = $function;
+        } else {
+          $name = pht('Invalid Function: %s', $value);
+          $tokens[$key] = $this->newInvalidToken($name)
+            ->setKey($value);
+        }
+      }
+    }
+
+    if ($phids) {
+      $handles = $this->getViewer()->loadHandles($phids);
+      foreach ($phids as $key => $phid) {
+        $handle = $handles[$phid];
+        $tokens[$key] = PhabricatorTypeaheadTokenView::newFromHandle($handle);
+      }
+    }
+
+    if ($setup) {
+      foreach ($setup as $function_name => $argv_list) {
+        // Render the function tokens.
+        $function_tokens = $this->renderFunctionTokens(
+          $function_name,
+          ipull($argv_list, 'argv'));
+
+        // Rekey the function tokens using the original array keys.
+        $function_tokens = array_combine(
+          array_keys($argv_list),
+          $function_tokens);
+
+        // For any functions which were invalid, set their value to the
+        // original input value before it was parsed.
+        foreach ($function_tokens as $key => $token) {
+          $type = $token->getTokenType();
+          if ($type == PhabricatorTypeaheadTokenView::TYPE_INVALID) {
+            $token->setKey($values[$key]);
+          }
+        }
+
+        $tokens += $function_tokens;
+      }
+    }
+
+    return array_select_keys($tokens, array_keys($values));
+  }
+
 /* -(  Token Functions  )---------------------------------------------------- */
 
 
   /**
    * @task functions
    */
+  public function getDatasourceFunctions() {
+    return array();
+  }
+
+
+  /**
+   * @task functions
+   */
+  public function getAllDatasourceFunctions() {
+    return $this->getDatasourceFunctions();
+  }
+
+
+  /**
+   * @task functions
+   */
   protected function canEvaluateFunction($function) {
-    return false;
+    return $this->shouldStripFunction($function);
+  }
+
+
+  /**
+   * @task functions
+   */
+  protected function shouldStripFunction($function) {
+    $functions = $this->getDatasourceFunctions();
+    return isset($functions[$function]);
   }
 
 
@@ -246,6 +337,16 @@ abstract class PhabricatorTypeaheadDatasource extends Phobject {
       }
     }
 
+    $results = $this->didEvaluateTokens($results);
+
+    return $results;
+  }
+
+
+  /**
+   * @task functions
+   */
+  protected function didEvaluateTokens(array $results) {
     return $results;
   }
 
@@ -268,7 +369,7 @@ abstract class PhabricatorTypeaheadDatasource extends Phobject {
     $matches = null;
 
     if ($allow_partial) {
-      $ok = preg_match('/^([^(]+)\((.*)$/', $token, $matches);
+      $ok = preg_match('/^([^(]+)\((.*?)\)?$/', $token, $matches);
     } else {
       $ok = preg_match('/^([^(]+)\((.*)\)$/', $token, $matches);
     }
@@ -297,5 +398,29 @@ abstract class PhabricatorTypeaheadDatasource extends Phobject {
     throw new PhutilMethodNotImplementedException();
   }
 
+
+  /**
+   * @task functions
+   */
+  public function setFunctionStack(array $function_stack) {
+    $this->functionStack = $function_stack;
+    return $this;
+  }
+
+
+  /**
+   * @task functions
+   */
+  public function getFunctionStack() {
+    return $this->functionStack;
+  }
+
+
+  /**
+   * @task functions
+   */
+  protected function getCurrentFunction() {
+    return nonempty(last($this->functionStack), null);
+  }
 
 }

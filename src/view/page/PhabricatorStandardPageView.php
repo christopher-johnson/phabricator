@@ -410,6 +410,7 @@ final class PhabricatorStandardPageView extends PhabricatorBarePageView {
       $durable_column = id(new ConpherenceDurableColumnView())
         ->setSelectedConpherence(null)
         ->setUser($user)
+        ->setQuicksandConfig($this->buildQuicksandConfig())
         ->setVisible($is_visible)
         ->setInitialLoad(true);
     }
@@ -460,11 +461,6 @@ final class PhabricatorStandardPageView extends PhabricatorBarePageView {
           $client_uri->setDomain($this_host->getDomain());
         }
 
-        $subscriptions = $this->pageObjects;
-        if ($user) {
-          $subscriptions[] = $user->getPHID();
-        }
-
         if ($request->isHTTPS()) {
           $client_uri->setProtocol('wss');
         } else {
@@ -475,9 +471,7 @@ final class PhabricatorStandardPageView extends PhabricatorBarePageView {
           'aphlict-listen',
           array(
             'websocketURI'  => (string)$client_uri,
-            'pageObjects'   => array_fill_keys($this->pageObjects, true),
-            'subscriptions' => $subscriptions,
-          ));
+          ) + $this->buildAphlictListenConfigData());
       }
     }
 
@@ -585,6 +579,21 @@ final class PhabricatorStandardPageView extends PhabricatorBarePageView {
 
     return array(
       'content' => hsprintf('%s', $response),
+    ) + $this->buildQuicksandConfig();
+  }
+
+  private function buildQuicksandConfig() {
+    return $this->buildAphlictListenConfigData();
+  }
+
+  private function buildAphlictListenConfigData() {
+    $user = $this->getRequest()->getUser();
+    $subscriptions = $this->pageObjects;
+    $subscriptions[] = $user->getPHID();
+
+    return array(
+      'pageObjects'   => array_fill_keys($this->pageObjects, true),
+      'subscriptions' => $subscriptions,
     );
   }
 
