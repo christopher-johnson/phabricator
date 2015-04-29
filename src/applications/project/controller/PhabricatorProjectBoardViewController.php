@@ -56,7 +56,6 @@ final class PhabricatorProjectBoardViewController
     $column_query = id(new PhabricatorProjectColumnQuery())
       ->setViewer($viewer)
       ->withProjectPHIDs(array($project->getPHID()));
-
     if (!$show_hidden) {
       $column_query->withStatuses(
         array(PhabricatorProjectColumn::STATUS_ACTIVE));
@@ -160,7 +159,10 @@ final class PhabricatorProjectBoardViewController
     $task_query = $engine->buildQueryFromSavedQuery($saved);
 
     $tasks = $task_query
-      ->addWithAllProjects(array($project->getPHID()))
+      ->withEdgeLogicPHIDs(
+        PhabricatorProjectObjectHasProjectEdgeType::EDGECONST,
+        PhabricatorQueryConstraint::OPERATOR_AND,
+        array($project->getPHID()))
       ->setOrderBy(ManiphestTaskQuery::ORDER_PRIORITY)
       ->setViewer($viewer)
       ->execute();
@@ -263,15 +265,17 @@ final class PhabricatorProjectBoardViewController
       ->setUser($viewer)
       ->setID($board_id);
 
+    $behavior_config = array(
+      'boardID' => $board_id,
+      'projectPHID' => $project->getPHID(),
+      'moveURI' => $this->getApplicationURI('move/'.$project->getID().'/'),
+      'createURI' => '/maniphest/task/create/',
+      'order' => $this->sortKey,
+    );
     $this->initBehavior(
       'project-boards',
-      array(
-        'boardID' => $board_id,
-        'projectPHID' => $project->getPHID(),
-        'moveURI' => $this->getApplicationURI('move/'.$project->getID().'/'),
-        'createURI' => '/maniphest/task/create/',
-        'order' => $this->sortKey,
-      ));
+      $behavior_config);
+    $this->addExtraQuickSandConfig(array('boardConfig' => $behavior_config));
 
     $this->handles = ManiphestTaskListView::loadTaskHandles($viewer, $tasks);
 
@@ -337,10 +341,6 @@ final class PhabricatorProjectBoardViewController
       $panel->setCards($cards);
       $board->addPanel($panel);
     }
-
-    Javelin::initBehavior(
-      'boards-dropdown',
-      array());
 
     $sort_menu = $this->buildSortMenu(
       $viewer,

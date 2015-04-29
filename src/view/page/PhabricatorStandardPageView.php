@@ -215,21 +215,9 @@ final class PhabricatorStandardPageView extends PhabricatorBarePageView {
 
     Javelin::initBehavior('device');
 
-    if ($user->hasSession()) {
-      $hisec = ($user->getSession()->getHighSecurityUntil() - time());
-      if ($hisec > 0) {
-        $remaining_time = phutil_format_relative_time($hisec);
-        Javelin::initBehavior(
-          'high-security-warning',
-          array(
-            'uri' => '/auth/session/downgrade/',
-            'message' => pht(
-              'Your session is in high security mode. When you '.
-              'finish using it, click here to leave.',
-              $remaining_time),
-          ));
-      }
-    }
+    Javelin::initBehavior(
+      'high-security-warning',
+      $this->getHighSecurityWarningConfig());
 
     if ($console) {
       require_celerity_resource('aphront-dark-console-css');
@@ -244,15 +232,7 @@ final class PhabricatorStandardPageView extends PhabricatorBarePageView {
 
       Javelin::initBehavior(
         'dark-console',
-        array(
-          // NOTE: We use a generic label here to prevent input reflection
-          // and mitigate compression attacks like BREACH. See discussion in
-          // T3684.
-          'uri' => pht('Main Request'),
-          'selected' => $user ? $user->getConsoleTab() : null,
-          'visible'  => $user ? (int)$user->getConsoleVisible() : true,
-          'headers' => $headers,
-        ));
+        $this->getConsoleConfig());
 
       // Change this to initBehavior when there is some behavior to initialize
       require_celerity_resource('javelin-behavior-error-log');
@@ -287,7 +267,7 @@ final class PhabricatorStandardPageView extends PhabricatorBarePageView {
       $user = $request->getUser();
       if ($user) {
         $monospaced = $user->loadPreferences()->getPreference(
-            PhabricatorUserPreferences::PREFERENCE_MONOSPACED);
+          PhabricatorUserPreferences::PREFERENCE_MONOSPACED);
       }
     }
 
@@ -295,12 +275,19 @@ final class PhabricatorStandardPageView extends PhabricatorBarePageView {
 
     $font_css = null;
     if (!empty($monospaced)) {
+      // We can't print this normally because escaping quotation marks will
+      // break the CSS. Instead, filter it strictly and then mark it as safe.
+      $monospaced = new PhutilSafeHTML(
+        PhabricatorUserPreferences::filterMonospacedCSSRule(
+          $monospaced));
+
       $font_css = hsprintf(
         '<style type="text/css">'.
         '.PhabricatorMonospaced, '.
         '.phabricator-remarkup .remarkup-code-block '.
           '.remarkup-code { font: %s !important; } '.
-        '</style>', $monospaced);
+        '</style>',
+        $monospaced);
     }
 
     return hsprintf(
@@ -526,6 +513,48 @@ final class PhabricatorStandardPageView extends PhabricatorBarePageView {
     return $this->getRequest()->getApplicationConfiguration()->getConsole();
   }
 
+  private function getConsoleConfig() {
+    $user = $this->getRequest()->getUser();
+
+    $headers = array();
+    if (DarkConsoleXHProfPluginAPI::isProfilerStarted()) {
+      $headers[DarkConsoleXHProfPluginAPI::getProfilerHeader()] = 'page';
+    }
+    if (DarkConsoleServicesPlugin::isQueryAnalyzerRequested()) {
+      $headers[DarkConsoleServicesPlugin::getQueryAnalyzerHeader()] = true;
+    }
+
+    return array(
+      // NOTE: We use a generic label here to prevent input reflection
+      // and mitigate compression attacks like BREACH. See discussion in
+      // T3684.
+      'uri' => pht('Main Request'),
+      'selected' => $user ? $user->getConsoleTab() : null,
+      'visible'  => $user ? (int)$user->getConsoleVisible() : true,
+      'headers' => $headers,
+    );
+  }
+
+  private function getHighSecurityWarningConfig() {
+    $user = $this->getRequest()->getUser();
+
+    $show = false;
+    if ($user->hasSession()) {
+      $hisec = ($user->getSession()->getHighSecurityUntil() - time());
+      if ($hisec > 0) {
+        $show = true;
+      }
+    }
+
+    return array(
+      'show' => $show,
+      'uri' => '/auth/session/downgrade/',
+      'message' => pht(
+        'Your session is in high security mode. When you '.
+        'finish using it, click here to leave.'),
+        );
+  }
+
   private function renderFooter() {
     if (!$this->getShowChrome()) {
       return null;
@@ -572,18 +601,81 @@ final class PhabricatorStandardPageView extends PhabricatorBarePageView {
       $foot);
   }
 
-  public function renderForQuicksand() {
+  public function renderForQuicksand(array $extra_config) {
     parent::willRenderPage();
     $response = $this->renderPageBodyContent();
     $response = $this->willSendResponse($response);
 
     return array(
       'content' => hsprintf('%s', $response),
-    ) + $this->buildQuicksandConfig();
+    ) + $this->buildQuicksandConfig()
+      + $extra_config;
   }
 
   private function buildQuicksandConfig() {
-    return $this->buildAphlictListenConfigData();
+    $viewer = $this->getRequest()->getUser();
+    $controller = $this->getController();
+
+    $dropdown_query = id(new AphlictDropdownDataQuery())
+      ->setViewer($viewer);
+    $dropdown_query->execute();
+
+    $rendered_dropdowns = array();
+    $applications = array(
+      'PhabricatorHelpApplication',
+    );
+    foreach ($applications as $application_class) {
+      if (!PhabricatorApplication::isClassInstalledForViewer(
+        $application_class,
+        $viewer)) {
+        continue;
+      }
+      $application = PhabricatorApplication::getByClass($application_class);
+      $rendered_dropdowns[$application_class] =
+        $application->buildMainMenuExtraNodes(
+          $viewer,
+          $controller);
+    }
+
+    $hisec_warning_config = $this->getHighSecurityWarningConfig();
+
+    $console_config = null;
+    $console = $this->getConsole();
+    if ($console) {
+      $console_config = $this->getConsoleConfig();
+    }
+
+    $upload_enabled = false;
+    if ($controller) {
+      $upload_enabled = $controller->isGlobalDragAndDropUploadEnabled();
+    }
+
+    $application_class = null;
+    $application_search_icon = null;
+    $controller = $this->getController();
+    if ($controller) {
+      $application = $controller->getCurrentApplication();
+      if ($application) {
+        $application_class = get_class($application);
+        if ($application->getApplicationSearchDocumentTypes()) {
+          $application_search_icon = $application->getFontIcon();
+        }
+      }
+    }
+
+    return array(
+      'title' => $this->getTitle(),
+      'aphlictDropdownData' => array(
+        $dropdown_query->getNotificationData(),
+        $dropdown_query->getConpherenceData(),
+      ),
+      'globalDragAndDrop' => $upload_enabled,
+      'aphlictDropdowns' => $rendered_dropdowns,
+      'hisecWarningConfig' => $hisec_warning_config,
+      'consoleConfig' => $console_config,
+      'applicationClass' => $application_class,
+      'applicationSearchIcon' => $application_search_icon,
+    ) + $this->buildAphlictListenConfigData();
   }
 
   private function buildAphlictListenConfigData() {
