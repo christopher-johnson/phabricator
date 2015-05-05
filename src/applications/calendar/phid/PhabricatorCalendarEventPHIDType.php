@@ -8,6 +8,10 @@ final class PhabricatorCalendarEventPHIDType extends PhabricatorPHIDType {
     return pht('Event');
   }
 
+  public function getPHIDTypeApplicationClass() {
+    return 'PhabricatorCalendarApplication';
+  }
+
   public function newObject() {
     return new PhabricatorCalendarEvent();
   }
@@ -30,11 +34,16 @@ final class PhabricatorCalendarEventPHIDType extends PhabricatorPHIDType {
 
       $id = $event->getID();
       $name = $event->getName();
+      $is_cancelled = $event->getIsCancelled();
 
       $handle
         ->setName($name)
         ->setFullName(pht('E%d: %s', $id, $name))
         ->setURI('/E'.$id);
+
+      if ($is_cancelled) {
+        $handle->setStatus(PhabricatorObjectHandleStatus::STATUS_CLOSED);
+      }
     }
   }
 

@@ -6,6 +6,7 @@ final class PhabricatorCalendarEvent extends PhabricatorCalendarDAO
   PhabricatorApplicationTransactionInterface,
   PhabricatorSubscribableInterface,
   PhabricatorTokenReceiverInterface,
+  PhabricatorDestructibleInterface,
   PhabricatorMentionableInterface,
   PhabricatorFlaggableInterface {
 
@@ -15,6 +16,13 @@ final class PhabricatorCalendarEvent extends PhabricatorCalendarDAO
   protected $dateTo;
   protected $status;
   protected $description;
+  protected $isCancelled;
+  protected $mailKey;
+
+  protected $viewPolicy;
+  protected $editPolicy;
+
+  private $invitees = self::ATTACHABLE;
 
   const STATUS_AWAY = 1;
   const STATUS_SPORADIC = 2;
@@ -26,7 +34,18 @@ final class PhabricatorCalendarEvent extends PhabricatorCalendarDAO
       ->executeOne();
 
     return id(new PhabricatorCalendarEvent())
-      ->setUserPHID($actor->getPHID());
+      ->setUserPHID($actor->getPHID())
+      ->setIsCancelled(0)
+      ->setViewPolicy($actor->getPHID())
+      ->setEditPolicy($actor->getPHID())
+      ->attachInvitees(array());
+  }
+
+  public function save() {
+    if (!$this->mailKey) {
+      $this->mailKey = Filesystem::readRandomCharacters(20);
+    }
+    return parent::save();
   }
 
   private static $statusTexts = array(
@@ -64,6 +83,8 @@ final class PhabricatorCalendarEvent extends PhabricatorCalendarDAO
         'dateTo' => 'epoch',
         'status' => 'uint32',
         'description' => 'text',
+        'isCancelled' => 'bool',
+        'mailKey' => 'bytes20',
       ),
       self::CONFIG_KEY_SCHEMA => array(
         'userPHID_dateFrom' => array(
@@ -114,17 +135,34 @@ final class PhabricatorCalendarEvent extends PhabricatorCalendarDAO
     return mpull($statuses, null, 'getUserPHID');
   }
 
-  /**
-   * Validates data and throws exceptions for non-sensical status
-   * windows
-   */
-  public function save() {
+  public function getInvitees() {
+    return $this->assertAttached($this->invitees);
+  }
 
-    if ($this->getDateTo() <= $this->getDateFrom()) {
-      throw new PhabricatorCalendarEventInvalidEpochException();
+  public function attachInvitees(array $invitees) {
+    $this->invitees = $invitees;
+    return $this;
+  }
+
+  public function getUserInviteStatus($phid) {
+    $invitees = $this->getInvitees();
+    $invitees = mpull($invitees, null, 'getInviteePHID');
+
+    $invited = idx($invitees, $phid);
+    if (!$invited) {
+      return PhabricatorCalendarEventInvitee::STATUS_UNINVITED;
     }
+    $invited = $invited->getStatus();
+    return $invited;
+  }
 
-    return parent::save();
+  public function getIsUserAttending($phid) {
+    $attending_status = PhabricatorCalendarEventInvitee::STATUS_ATTENDING;
+
+    $old_status = $this->getUserInviteStatus($phid);
+    $is_attending = ($old_status == $attending_status);
+
+    return $is_attending;
   }
 
 /* -(  Markup Interface  )--------------------------------------------------- */
@@ -187,18 +225,37 @@ final class PhabricatorCalendarEvent extends PhabricatorCalendarDAO
   public function getPolicy($capability) {
     switch ($capability) {
       case PhabricatorPolicyCapability::CAN_VIEW:
-        return PhabricatorPolicies::getMostOpenPolicy();
+        return $this->getViewPolicy();
       case PhabricatorPolicyCapability::CAN_EDIT:
-        return $this->getUserPHID();
+        return $this->getEditPolicy();
     }
   }
 
   public function hasAutomaticCapability($capability, PhabricatorUser $viewer) {
+    // The owner of a task can always view and edit it.
+    $user_phid = $this->getUserPHID();
+    if ($user_phid) {
+      $viewer_phid = $viewer->getPHID();
+      if ($viewer_phid == $user_phid) {
+        return true;
+      }
+    }
+
+    if ($capability == PhabricatorPolicyCapability::CAN_VIEW) {
+      $status = $this->getUserInviteStatus($viewer->getPHID());
+      if ($status == PhabricatorCalendarEventInvitee::STATUS_INVITED ||
+        $status == PhabricatorCalendarEventInvitee::STATUS_ATTENDING ||
+        $status == PhabricatorCalendarEventInvitee::STATUS_DECLINED) {
+        return true;
+      }
+    }
+
     return false;
   }
 
   public function describeAutomaticCapability($capability) {
-    return null;
+    return pht('The owner of an event can always view and edit it,
+      and invitees can always view it.');
   }
 
 /* -(  PhabricatorApplicationTransactionInterface  )------------------------- */
@@ -243,5 +300,16 @@ final class PhabricatorCalendarEvent extends PhabricatorCalendarDAO
 
   public function getUsersToNotifyOfTokenGiven() {
     return array($this->getUserPHID());
+  }
+
+/* -(  PhabricatorDestructibleInterface  )----------------------------------- */
+
+
+  public function destroyObjectPermanently(
+    PhabricatorDestructionEngine $engine) {
+
+    $this->openTransaction();
+    $this->delete();
+    $this->saveTransaction();
   }
 }
