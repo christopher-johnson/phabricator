@@ -8,9 +8,10 @@
  *   $result = $call->execute();
  *
  */
-final class ConduitCall {
+final class ConduitCall extends Phobject {
 
   private $method;
+  private $handler;
   private $request;
   private $user;
 
@@ -148,6 +149,10 @@ final class ConduitCall {
     }
 
     return $method;
+  }
+
+  public function getMethodImplementation() {
+    return $this->handler;
   }
 
 

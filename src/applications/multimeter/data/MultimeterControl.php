@@ -1,6 +1,6 @@
 <?php
 
-final class MultimeterControl {
+final class MultimeterControl extends Phobject {
 
   private static $instance;
 
@@ -88,7 +88,7 @@ final class MultimeterControl {
     }
 
     if ($this->sampleRate === null) {
-      throw new Exception(pht('Call setSampleRate() before saving events!'));
+      throw new PhutilInvalidStateException('setSampleRate');
     }
 
     $this->addServiceEvents();

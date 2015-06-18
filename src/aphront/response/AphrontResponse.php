@@ -1,6 +1,6 @@
 <?php
 
-abstract class AphrontResponse {
+abstract class AphrontResponse extends Phobject {
 
   private $request;
   private $cacheable = false;
@@ -154,7 +154,7 @@ abstract class AphrontResponse {
 
     array_walk_recursive(
       $object,
-      array('AphrontResponse', 'processValueForJSONEncoding'));
+      array(__CLASS__, 'processValueForJSONEncoding'));
 
     $response = json_encode($object);
 

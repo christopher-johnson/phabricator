@@ -11,13 +11,17 @@ final class PassphraseQueryConduitAPIMethod
     return pht('Query credentials.');
   }
 
+  public function newQueryObject() {
+    return new PassphraseCredentialQuery();
+  }
+
   protected function defineParamTypes() {
     return array(
-      'ids'           => 'optional list<int>',
-      'phids'         => 'optional list<phid>',
-      'needSecrets'   => 'optional bool',
-      'needPublicKeys'   => 'optional bool',
-    ) + $this->getPagerParamTypes();
+      'ids' => 'optional list<int>',
+      'phids' => 'optional list<phid>',
+      'needSecrets' => 'optional bool',
+      'needPublicKeys' => 'optional bool',
+    );
   }
 
   protected function defineReturnType() {
@@ -25,8 +29,7 @@ final class PassphraseQueryConduitAPIMethod
   }
 
   protected function execute(ConduitAPIRequest $request) {
-    $query = id(new PassphraseCredentialQuery())
-      ->setViewer($request->getUser());
+    $query = $this->newQueryForRequest($request);
 
     if ($request->getValue('ids')) {
       $query->withIDs($request->getValue('ids'));
@@ -58,16 +61,24 @@ final class PassphraseQueryConduitAPIMethod
           $credential);
       }
 
+      $material = array();
+
       $secret = null;
       if ($request->getValue('needSecrets')) {
         if ($credential->getAllowConduit()) {
-          $secret = $credential->getSecret()->openEnvelope();
+          $secret = $credential->getSecret();
+          if ($secret) {
+            $secret = $secret->openEnvelope();
+          } else {
+            $material['destroyed'] = pht(
+              'The private material for this credential has been '.
+              'destroyed.');
+          }
         }
       }
 
-      $material = array();
       switch ($credential->getCredentialType()) {
-        case PassphraseCredentialTypeSSHPrivateKeyFile::CREDENTIAL_TYPE:
+        case PassphraseSSHPrivateKeyFileCredentialType::CREDENTIAL_TYPE:
           if ($secret) {
             $material['file'] = $secret;
           }
@@ -75,8 +86,8 @@ final class PassphraseQueryConduitAPIMethod
             $material['publicKey'] = $public_key;
           }
           break;
-        case PassphraseCredentialTypeSSHGeneratedKey::CREDENTIAL_TYPE:
-        case PassphraseCredentialTypeSSHPrivateKeyText::CREDENTIAL_TYPE:
+        case PassphraseSSHGeneratedKeyCredentialType::CREDENTIAL_TYPE:
+        case PassphraseSSHPrivateKeyTextCredentialType::CREDENTIAL_TYPE:
           if ($secret) {
             $material['privateKey'] = $secret;
           }
@@ -84,7 +95,7 @@ final class PassphraseQueryConduitAPIMethod
             $material['publicKey'] = $public_key;
           }
           break;
-        case PassphraseCredentialTypePassword::CREDENTIAL_TYPE:
+        case PassphrasePasswordCredentialType::CREDENTIAL_TYPE:
           if ($secret) {
             $material['password'] = $secret;
           }
@@ -93,8 +104,8 @@ final class PassphraseQueryConduitAPIMethod
 
       if (!$credential->getAllowConduit()) {
         $material['noAPIAccess'] = pht(
-          'This credential\'s private material '.
-          'is not accessible via API calls.');
+          'This private material for this credential is not accessible via '.
+          'API calls.');
       }
 
       $results[$credential->getPHID()] = array(
@@ -102,6 +113,7 @@ final class PassphraseQueryConduitAPIMethod
         'phid' => $credential->getPHID(),
         'type' => $credential->getCredentialType(),
         'name' => $credential->getName(),
+        'description' => $credential->getDescription(),
         'uri' =>
           PhabricatorEnv::getProductionURI('/'.$credential->getMonogram()),
         'monogram' => $credential->getMonogram(),

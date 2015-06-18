@@ -1,6 +1,6 @@
 <?php
 
-final class PHUIHeaderView extends AphrontView {
+final class PHUIHeaderView extends AphrontTagView {
 
   const PROPERTY_STATUS = 1;
 
@@ -123,7 +123,11 @@ final class PHUIHeaderView extends AphrontView {
     return $this;
   }
 
-  public function render() {
+  protected function getTagName() {
+    return 'div';
+  }
+
+  protected function getTagAttributes() {
     require_celerity_resource('phui-header-view-css');
 
     $classes = array();
@@ -146,6 +150,16 @@ final class PHUIHeaderView extends AphrontView {
       $classes[] = 'phui-header-tall';
     }
 
+    if ($this->image) {
+      $classes[] = 'phui-header-has-image';
+    }
+
+    return array(
+      'class' => $classes,
+    );
+  }
+
+  protected function getTagContent() {
     $image = null;
     if ($this->image) {
       $image = phutil_tag(
@@ -156,10 +170,28 @@ final class PHUIHeaderView extends AphrontView {
           'style' => 'background-image: url('.$this->image.')',
         ),
         ' ');
-      $classes[] = 'phui-header-has-image';
     }
 
+    $viewer = $this->getUser();
+
     $header = array();
+    if ($viewer) {
+      $header[] = id(new PHUISpacesNamespaceContextView())
+        ->setUser($viewer)
+        ->setObject($this->policyObject);
+    }
+
+    if ($this->objectName) {
+      $header[] = array(
+        phutil_tag(
+          'a',
+          array(
+            'href' => '/'.$this->objectName,
+          ),
+          $this->objectName),
+        ' ',
+      );
+    }
 
     if ($this->actionLinks) {
       $actions = array();
@@ -186,18 +218,6 @@ final class PHUIHeaderView extends AphrontView {
         $this->buttonBar);
     }
     $header[] = $this->header;
-
-    if ($this->objectName) {
-      array_unshift(
-        $header,
-        phutil_tag(
-          'a',
-          array(
-            'href' => '/'.$this->objectName,
-          ),
-          $this->objectName),
-        ' ');
-    }
 
     if ($this->tags) {
       $header[] = ' ';
@@ -226,7 +246,7 @@ final class PHUIHeaderView extends AphrontView {
             $property_list[] = $property;
           break;
           default:
-            throw new Exception('Incorrect Property Passed');
+            throw new Exception(pht('Incorrect Property Passed'));
           break;
         }
       }
@@ -243,31 +263,52 @@ final class PHUIHeaderView extends AphrontView {
         $property_list);
     }
 
-    return phutil_tag(
-      'div',
-      array(
-        'class' => implode(' ', $classes),
-      ),
-      array(
-        $image,
-        phutil_tag(
-          'h1',
-          array(
-            'class' => 'phui-header-view grouped',
-          ),
-          $header),
-      ));
+    return array(
+      $image,
+      phutil_tag(
+        'h1',
+        array(
+          'class' => 'phui-header-view grouped',
+        ),
+        $header),
+      );
   }
 
   private function renderPolicyProperty(PhabricatorPolicyInterface $object) {
-    $policies = PhabricatorPolicyQuery::loadPolicies(
-      $this->getUser(),
-      $object);
+    $viewer = $this->getUser();
+
+    $policies = PhabricatorPolicyQuery::loadPolicies($viewer, $object);
 
     $view_capability = PhabricatorPolicyCapability::CAN_VIEW;
     $policy = idx($policies, $view_capability);
     if (!$policy) {
       return null;
+    }
+
+    // If an object is in a Space with a strictly stronger (more restrictive)
+    // policy, we show the more restrictive policy. This better aligns the
+    // UI hint with the actual behavior.
+
+    // NOTE: We'll do this even if the viewer has access to only one space, and
+    // show them information about the existence of spaces if they click
+    // through.
+    if ($object instanceof PhabricatorSpacesInterface) {
+      $space_phid = PhabricatorSpacesNamespaceQuery::getObjectSpacePHID(
+        $object);
+
+      $spaces = PhabricatorSpacesNamespaceQuery::getViewerSpaces($viewer);
+      $space = idx($spaces, $space_phid);
+      if ($space) {
+        $space_policies = PhabricatorPolicyQuery::loadPolicies(
+          $viewer,
+          $space);
+        $space_policy = idx($space_policies, $view_capability);
+        if ($space_policy) {
+          if ($space_policy->isStrongerThan($policy)) {
+            $policy = $space_policy;
+          }
+        }
+      }
     }
 
     $phid = $object->getPHID();
@@ -286,4 +327,5 @@ final class PHUIHeaderView extends AphrontView {
 
     return array($icon, $link);
   }
+
 }

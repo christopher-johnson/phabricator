@@ -25,6 +25,10 @@ final class PholioRemarkupRule extends PhabricatorObjectRemarkupRule {
       $href = $href.'/'.$id[1].'/';
     }
 
+    if ($this->getEngine()->getConfig('uri.full')) {
+      $href = PhabricatorEnv::getURI($href);
+    }
+
     return $href;
   }
 
@@ -60,7 +64,10 @@ final class PholioRemarkupRule extends PhabricatorObjectRemarkupRule {
     PhabricatorObjectHandle $handle,
     $options) {
 
+    $viewer = $this->getEngine()->getConfig('viewer');
+
     $embed_mock = id(new PholioMockEmbedView())
+      ->setUser($viewer)
       ->setMock($object);
 
     if (strlen($options)) {

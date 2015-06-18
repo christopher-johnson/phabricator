@@ -8,7 +8,7 @@ final class DifferentialSetDiffPropertyConduitAPIMethod
   }
 
   public function getMethodDescription() {
-    return 'Attach properties to Differential diffs.';
+    return pht('Attach properties to Differential diffs.');
   }
 
   protected function defineParamTypes() {
@@ -25,7 +25,7 @@ final class DifferentialSetDiffPropertyConduitAPIMethod
 
   protected function defineErrorTypes() {
     return array(
-      'ERR_NOT_FOUND' => 'Diff was not found.',
+      'ERR_NOT_FOUND' => pht('Diff was not found.'),
     );
   }
 
@@ -86,7 +86,7 @@ final class DifferentialSetDiffPropertyConduitAPIMethod
   protected function execute(ConduitAPIRequest $request) {
     $diff_id = $request->getValue('diff_id');
     $name = $request->getValue('name');
-    $data = phutil_json_decode($request->getValue('data'));
+    $data = json_decode($request->getValue('data'), true);
 
     self::updateDiffProperty($diff_id, $name, $data);
 

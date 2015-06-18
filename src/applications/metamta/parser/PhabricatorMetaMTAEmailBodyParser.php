@@ -1,6 +1,6 @@
 <?php
 
-final class PhabricatorMetaMTAEmailBodyParser {
+final class PhabricatorMetaMTAEmailBodyParser extends Phobject {
 
   /**
    * Mails can have bodies such as
@@ -120,6 +120,12 @@ final class PhabricatorMetaMTAEmailBodyParser {
     // See example in T3217.
     $body = preg_replace(
       '/^________________________________________\s+From:.*?/imsU',
+      '',
+      $body);
+
+    // French GMail quoted text. See T8199.
+    $body = preg_replace(
+      '/^\s*\d{4}-\d{2}-\d{2} \d+:\d+ GMT.*:.*?/imsU',
       '',
       $body);
 

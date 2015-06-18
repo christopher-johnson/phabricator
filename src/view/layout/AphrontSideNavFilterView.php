@@ -125,12 +125,7 @@ final class AphrontSideNavFilterView extends AphrontView {
       $key, $name, $uri, PHUIListItemView::TYPE_BUTTON);
   }
 
-  private function addThing(
-    $key,
-    $name,
-    $uri = null,
-    $type) {
-
+  private function addThing($key, $name, $uri, $type) {
     $item = id(new PHUIListItemView())
       ->setName($name)
       ->setType($type);
@@ -192,10 +187,10 @@ final class AphrontSideNavFilterView extends AphrontView {
   public function render() {
     if ($this->menu->getItems()) {
       if (!$this->baseURI) {
-        throw new Exception(pht('Call setBaseURI() before render()!'));
+        throw new PhutilInvalidStateException('setBaseURI');
       }
       if ($this->selectedFilter === false) {
-        throw new Exception(pht('Call selectFilter() before render()!'));
+        throw new PhutilInvalidStateException('selectFilter');
       }
     }
 
