@@ -341,10 +341,10 @@ final class PhabricatorCalendarEventEditController
       $recurrence_frequency_select = id(new AphrontFormSelectControl())
         ->setName('frequency')
         ->setOptions(array(
-            'daily' => pht('Daily'),
-            'weekly' => pht('Weekly'),
-            'monthly' => pht('Monthly'),
-            'yearly' => pht('Yearly'),
+            PhabricatorCalendarEvent::FREQUENCY_DAILY => pht('Daily'),
+            PhabricatorCalendarEvent::FREQUENCY_WEEKLY => pht('Weekly'),
+            PhabricatorCalendarEvent::FREQUENCY_MONTHLY => pht('Monthly'),
+            PhabricatorCalendarEvent::FREQUENCY_YEARLY => pht('Yearly'),
           ))
         ->setValue($frequency)
         ->setLabel(pht('Recurring Event Frequency'))
@@ -437,10 +437,11 @@ final class PhabricatorCalendarEventEditController
         ->setValue($end_disabled);
     }
 
-    $description = id(new AphrontFormTextAreaControl())
+    $description = id(new PhabricatorRemarkupControl())
       ->setLabel(pht('Description'))
       ->setName('description')
-      ->setValue($description);
+      ->setValue($description)
+      ->setUser($viewer);
 
     $view_policies = id(new AphrontFormPolicyControl())
       ->setUser($viewer)
