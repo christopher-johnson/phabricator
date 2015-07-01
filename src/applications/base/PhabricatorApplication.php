@@ -449,6 +449,10 @@ abstract class PhabricatorApplication
     $class,
     PhabricatorUser $viewer) {
 
+    if ($viewer->isOmnipotent()) {
+      return true;
+    }
+
     $cache = PhabricatorCaches::getRequestCache();
     $viewer_phid = $viewer->getPHID();
     $key = 'app.'.$class.'.installed.'.$viewer_phid;
@@ -604,6 +608,23 @@ abstract class PhabricatorApplication
 
     $spec = $this->getCustomCapabilitySpecification($capability);
     return idx($spec, 'template');
+  }
+
+  final public function getDefaultObjectTypePolicyMap() {
+    $map = array();
+
+    foreach ($this->getCustomCapabilities() as $capability => $spec) {
+      if (empty($spec['template'])) {
+        continue;
+      }
+      if (empty($spec['capability'])) {
+        continue;
+      }
+      $default = $this->getPolicy($capability);
+      $map[$spec['template']][$spec['capability']] = $default;
+    }
+
+    return $map;
   }
 
   public function getApplicationSearchDocumentTypes() {
