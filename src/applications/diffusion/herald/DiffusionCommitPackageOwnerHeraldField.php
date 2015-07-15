@@ -30,7 +30,7 @@ final class DiffusionCommitPackageOwnerHeraldField
       case HeraldAdapter::CONDITION_NOT_EXISTS:
         return HeraldAdapter::VALUE_NONE;
       default:
-        return HeraldAdapter::VALUE_USER;
+        return HeraldAdapter::VALUE_USER_OR_PROJECT;
     }
   }
 
