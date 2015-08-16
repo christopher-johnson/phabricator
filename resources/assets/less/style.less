@@ -1,0 +1,297 @@
+@import "../bower_components/bootstrap/less/bootstrap";
+
+@phragile-saturated-blue: #3f92ff;
+@phragile-dark-blue: #0d54b2;
+@phragile-bright-yellow: #ffb426;
+@phragile-green: #97b223;
+@phragile-light-green: #aacc1e;
+
+@brand-primary: @phragile-dark-blue;
+@burndown-actual: @phragile-saturated-blue;
+@burndown-ideal: @phragile-light-green;
+@burndown-daily-points: @phragile-green;
+@burnup-progress: @burndown-actual;
+@burnup-scope: @phragile-bright-yellow;
+
+.navbar {
+  border-top: 0;
+  background-color: @phragile-saturated-blue;
+  border-bottom: 3px solid @phragile-dark-blue;
+  border-radius: 0;
+
+  .navbar-brand {
+    padding-top: 13px;
+
+    img {
+      height: 25px;
+    }
+  }
+
+  .nav .dropdown {
+    .dropdown-toggle {
+      color: #fff;
+    }
+
+    &.open .dropdown-toggle {
+      background-color: @phragile-dark-blue;
+    }
+  }
+}
+
+.jumbotron.front {
+  padding-top: 20px;
+  position: relative;
+  padding-bottom: 0;
+  padding-top: 0;
+  margin-top: -20px;
+  margin-bottom: 10px;
+  background: #fff;
+
+  .btn.create-project, .dropdown {
+    float: left;
+    margin-right: 10px;
+  }
+}
+
+.phragile-dropdown {
+  background: #fff;
+  border: 1px solid lighten(@gray-light, 20%);
+}
+
+.sprint-overview-title {
+  margin-top: 0;
+  font-size: 20px;
+
+  .dropdown-toggle {
+    .phragile-dropdown;
+  }
+
+  .phabricator-icon {
+    width: 31px;
+  }
+}
+#snapshots {
+   .dropdown-toggle {
+     .phragile-dropdown;
+   }
+
+   margin-bottom: 15px;
+}
+
+#burndown {
+  position: relative;
+
+  .graph {
+    &.burndown {
+      stroke: @burndown-actual;
+    }
+
+    &.ideal {
+      stroke: @burndown-ideal;
+      stroke-dasharray: 10 5;
+    }
+
+    &.burnup {
+      stroke: @burnup-progress;
+    }
+
+    &.scope {
+      stroke: @burnup-scope;
+    }
+
+    stroke-width: 3px;
+    fill: none;
+  }
+
+  .axis {
+    path, line {
+      fill: none;
+      stroke: @gray;
+      stroke-width: 1px;
+      shape-rendering: crispEdges;
+    }
+
+    &.x {
+      text {
+        transform: rotate(-65deg);
+        font-size: 11px;
+      }
+      .tick:first-of-type {
+        display: none;
+        visibility: hidden;
+      }
+    }
+  }
+
+  .daily-points {
+    stroke-width: 2px;
+    stroke: @burndown-daily-points;
+  }
+  .graph-area {
+    fill: fadeout(@burndown-actual, 80);
+  }
+
+  .data-point(@stroke) {
+    stroke-width: 2px;
+    fill: #fff;
+    stroke: @stroke;
+
+    &.selected {
+      fill: @stroke;
+    }
+  }
+  #burndown-data-points .data-point {
+    .data-point(@burndown-actual)
+  }
+  #ideal-data-points .data-point {
+    .data-point(@burndown-ideal)
+  }
+  #burnup-data-points .data-point {
+    .data-point(@burnup-progress)
+  }
+  #scope-data-points .data-point {
+    .data-point(@burnup-scope)
+  }
+}
+
+#burndown-overlay {
+  fill: none;
+  pointer-events: all;
+}
+
+#pick-chart {
+  margin-left: 30px;
+}
+
+#graph-labels {
+  background: fadeOut(#fff, 30%);
+  display: none;
+  position: absolute;
+  z-index: 10;
+  width: 140px;
+  color: #fff;
+  border-radius: 5px;
+
+  .graph-value {
+    color: #000;
+    font-weight: bold;
+  }
+
+  td:last-child {
+    border-bottom: 0;
+  }
+
+  .scope {
+    color: darken(@burnup-scope, 10%);
+  }
+  .burnup {
+    color: @burnup-progress;
+  }
+  .ideal {
+    color: darken(@burndown-ideal, 20%);
+  }
+  .burndown {
+    color: @burndown-actual;
+  }
+  .daily-points {
+    color: @burndown-daily-points;
+  }
+}
+
+.status-table {
+  margin-bottom: 0;
+}
+.sprint-backlog {
+  margin-top: 10px;
+
+  td {
+    min-width: 120px;
+  }
+
+  th {
+    cursor: pointer;
+    user-select: none;
+
+    .glyphicon-sort;
+    &:before {
+      font-family: "Glyphicons Halflings";
+      color: @gray;
+      font-size: smaller;
+      padding-right: 3px;
+    }
+  }
+}
+.filter-backlog, .reset-filter {
+  cursor: pointer;
+}
+
+@resolved: @phragile-light-green;
+@wontfix: lighten(@resolved, 10%);
+@open: @phragile-bright-yellow;
+@doing: lighten(@open, 10%);
+@patch: lighten(@phragile-saturated-blue, 10%);
+
+.status-table, .sprint-backlog {
+  .status-label {
+    border-radius: 3px;
+    color: #fff;
+    font-weight: normal;
+    padding: 2px 3px;
+    background-color: @open;
+  }
+
+  .total {
+    background-color: #000;
+  }
+  .resolved, .closed, .declined, .invalid, .duplicate {
+    background-color: @resolved;
+  }
+  .wontfix {
+    background-color: @wontfix;
+  }
+  .open {
+    background-color: @open;
+  }
+  .patch {
+    background-color: @patch;
+  }
+  .doing {
+    background-color: @doing;
+  }
+}
+
+.fillAndHighlightOnHover(@bg-color) {
+  fill: @bg-color;
+  &:hover {
+    fill: lighten(@bg-color, 5%);
+  }
+}
+#pie {
+  .status {
+    stroke: #fff;
+    stroke-width: 2px;
+    .fillAndHighlightOnHover(@open);
+  }
+  .resolved, .closed, .declined, .invalid, .duplicate {
+    .fillAndHighlightOnHover(@resolved);
+  }
+  .open {
+    .fillAndHighlightOnHover(@open);
+  }
+  .wontfix {
+    .fillAndHighlightOnHover(@wontfix);
+  }
+  .patch {
+    .fillAndHighlightOnHover(@patch);
+  }
+  .doing {
+    .fillAndHighlightOnHover(@doing);
+  }
+
+  #label-tooltip {
+    fill: #fff;
+    text-shadow: 0 0 3px #000;
+    font-weight: normal;
+    font-size: 15px;
+  }
+}

@@ -1,0 +1,15 @@
+default:
+  autoload:
+    '': %paths.base%/tests/acceptance/bootstrap
+  suites:
+    default:
+      paths:
+        - %paths.base%/tests/acceptance/
+  extensions:
+    Laracasts\Behat\ServiceContainer\BehatExtension:
+      env_path: .env
+    Behat\MinkExtension\ServiceContainer\MinkExtension:
+      goutte: ~
+      laravel:
+imports:
+  - behat_custom.yml
