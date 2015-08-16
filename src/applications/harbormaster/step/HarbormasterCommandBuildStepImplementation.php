@@ -13,6 +13,10 @@ final class HarbormasterCommandBuildStepImplementation
     return pht('Run a command on Drydock host.');
   }
 
+  public function getBuildStepGroupKey() {
+    return HarbormasterPrototypeBuildStepGroup::GROUPKEY;
+  }
+
   public function getDescription() {
     return pht(
       'Run command %s on host %s.',
@@ -39,9 +43,9 @@ final class HarbormasterCommandBuildStepImplementation
     $settings = $this->getSettings();
     $variables = $build_target->getVariables();
 
-    $artifact = $build->loadArtifact($settings['hostartifact']);
-
-    $lease = $artifact->loadDrydockLease();
+    $artifact = $build_target->loadArtifact($settings['hostartifact']);
+    $impl = $artifact->getArtifactImplementation();
+    $lease = $impl->loadArtifactLease();
 
     $this->platform = $lease->getAttribute('platform');
 
@@ -116,9 +120,9 @@ final class HarbormasterCommandBuildStepImplementation
   public function getArtifactInputs() {
     return array(
       array(
-        'name'  => pht('Run on Host'),
-        'key'   => $this->getSetting('hostartifact'),
-        'type'  => HarbormasterBuildArtifact::TYPE_HOST,
+        'name' => pht('Run on Host'),
+        'key' => $this->getSetting('hostartifact'),
+        'type' => HarbormasterHostArtifact::ARTIFACTCONST,
       ),
     );
   }
