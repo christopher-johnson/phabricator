@@ -167,6 +167,7 @@ abstract class DiffusionBrowseController extends DiffusionController {
     if (PhabricatorApplication::isClassInstalled($owners)) {
       $package_query = id(new PhabricatorOwnersPackageQuery())
         ->setViewer($viewer)
+        ->withStatuses(array(PhabricatorOwnersPackage::STATUS_ACTIVE))
         ->withControl(
           $repository->getPHID(),
           array(
@@ -182,8 +183,6 @@ abstract class DiffusionBrowseController extends DiffusionController {
       if ($packages) {
         $ownership = id(new PHUIStatusListView())
           ->setUser($viewer);
-
-
 
         foreach ($packages as $package) {
           $icon = 'fa-list-alt';
