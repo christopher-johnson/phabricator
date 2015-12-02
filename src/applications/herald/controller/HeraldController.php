@@ -2,20 +2,6 @@
 
 abstract class HeraldController extends PhabricatorController {
 
-  public function buildStandardPageResponse($view, array $data) {
-    $page = $this->buildStandardPageView();
-
-    $page->setApplicationName(pht('Herald'));
-    $page->setBaseURI('/herald/');
-    $page->setTitle(idx($data, 'title'));
-    $page->setGlyph("\xE2\x98\xBF");
-
-    $page->appendChild($view);
-
-    $response = new AphrontWebpageResponse();
-    return $response->setContent($page->render());
-  }
-
   public function buildApplicationMenu() {
     return $this->buildSideNavView(true)->getMenu();
   }
@@ -32,24 +18,19 @@ abstract class HeraldController extends PhabricatorController {
     return $crumbs;
   }
 
-  public function buildSideNavView($for_app = false) {
-    $user = $this->getRequest()->getUser();
+  public function buildSideNavView() {
+    $viewer = $this->getViewer();
 
     $nav = new AphrontSideNavFilterView();
     $nav->setBaseURI(new PhutilURI($this->getApplicationURI()));
 
-    if ($for_app) {
-      $nav->addFilter('new', pht('Create Rule'));
-    }
-
     id(new HeraldRuleSearchEngine())
-      ->setViewer($user)
+      ->setViewer($viewer)
       ->addNavigationItems($nav->getMenu());
 
-    $nav
-      ->addLabel(pht('Utilities'))
-      ->addFilter('test', pht('Test Console'))
-      ->addFilter('transcript', pht('Transcripts'));
+    $nav->addLabel(pht('Utilities'))
+        ->addFilter('test', pht('Test Console'))
+        ->addFilter('transcript', pht('Transcripts'));
 
     $nav->selectFilter(null);
 

@@ -53,7 +53,7 @@ final class DivinerBookController extends DivinerController {
           ->setName($book->getRepository()->getMonogram()));
     }
 
-    $document = new PHUIDocumentView();
+    $document = new PHUIDocumentViewPro();
     $document->setHeader($header);
     $document->addClass('diviner-view');
 

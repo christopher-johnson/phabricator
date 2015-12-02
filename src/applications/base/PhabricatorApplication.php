@@ -635,4 +635,20 @@ abstract class PhabricatorApplication
     return array();
   }
 
+  protected function getEditRoutePattern($base = null) {
+    return $base.'(?:'.
+      '(?P<id>[0-9]\d*)/)?'.
+      '(?:'.
+        '(?:'.
+          '(?P<editAction>parameters|nodefault)'.
+          '|'.
+          '(?:form/(?P<formKey>[^/]+))'.
+        ')'.
+      '/)?';
+  }
+
+  protected function getQueryRoutePattern($base = null) {
+    return $base.'(?:query/(?P<queryKey>[^/]+)/)?';
+  }
+
 }

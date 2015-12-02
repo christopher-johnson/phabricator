@@ -3,6 +3,10 @@
 final class DrydockRepositoryOperationViewController
   extends DrydockController {
 
+  public function shouldAllowPublic() {
+    return true;
+  }
+
   public function handleRequest(AphrontRequest $request) {
     $viewer = $request->getViewer();
     $id = $request->getURIData('id');
@@ -33,16 +37,24 @@ final class DrydockRepositoryOperationViewController
     $properties->setActionList($actions);
 
     $crumbs = $this->buildApplicationCrumbs();
+    $crumbs->addTextCrumb(
+      pht('Operations'),
+      $this->getApplicationURI('operation/'));
     $crumbs->addTextCrumb($title);
 
     $object_box = id(new PHUIObjectBoxView())
       ->setHeader($header)
       ->addPropertyList($properties);
 
+    $status_view = id(new DrydockRepositoryOperationStatusView())
+      ->setUser($viewer)
+      ->setOperation($operation);
+
     return $this->buildApplicationPage(
       array(
         $crumbs,
         $object_box,
+        $status_view,
       ),
       array(
         'title' => $title,
@@ -76,17 +88,16 @@ final class DrydockRepositoryOperationViewController
       pht('Object'),
       $viewer->renderHandle($operation->getObjectPHID()));
 
+    $lease_phid = $operation->getWorkingCopyLeasePHID();
+    if ($lease_phid) {
+      $lease_display = $viewer->renderHandle($lease_phid);
+    } else {
+      $lease_display = phutil_tag('em', array(), pht('None'));
+    }
+
+    $view->addProperty(pht('Working Copy'), $lease_display);
+
     return $view;
-  }
-
-  public function buildSideNavView() {
-    // TODO: Get rid of this, but it's currently required by DrydockController.
-    return null;
-  }
-
-  public function buildApplicationMenu() {
-    // TODO: As above.
-    return null;
   }
 
 }
