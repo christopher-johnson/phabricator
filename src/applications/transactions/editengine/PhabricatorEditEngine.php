@@ -163,6 +163,22 @@ abstract class PhabricatorEditEngine
   }
 
 
+  /**
+   * @task text
+   */
+  protected function getCommentViewHeaderText($object) {
+    return pht('Add Comment');
+  }
+
+
+  /**
+   * @task text
+   */
+  protected function getCommentViewButtonText($object) {
+    return pht('Add Comment');
+  }
+
+
 /* -(  Edit Engine Configuration  )------------------------------------------ */
 
 
@@ -175,12 +191,19 @@ abstract class PhabricatorEditEngine
   }
 
   private function loadEditEngineConfiguration($key) {
+    $viewer = $this->getViewer();
     if ($key === null) {
       $key = self::EDITENGINECONFIG_DEFAULT;
+
+      // TODO: At least for now, we need to load the default configuration
+      // in some cases (editing, comment actions) even if the viewer can not
+      // otherwise see it. This should be cleaned up eventually, but we can
+      // safely use the omnipotent user for now without policy violations.
+      $viewer = PhabricatorUser::getOmnipotentUser();
     }
 
     $config = id(new PhabricatorEditEngineConfigurationQuery())
-      ->setViewer($this->getViewer())
+      ->setViewer($viewer)
       ->withEngineKeys(array($this->getEngineKey()))
       ->withIdentifiers(array($key))
       ->executeOne();
@@ -574,6 +597,8 @@ abstract class PhabricatorEditEngine
         return $this->buildParametersResponse($object);
       case 'nodefault':
         return $this->buildNoDefaultResponse($object);
+      case 'comment':
+        return $this->buildCommentResponse($object);
       default:
         return $this->buildEditResponse($object);
     }
@@ -684,10 +709,6 @@ abstract class PhabricatorEditEngine
           }
 
           $field->readValueFromRequest($request);
-        }
-      } else {
-        foreach ($fields as $field) {
-          $field->readValueFromObject($object);
         }
       }
     }
@@ -858,6 +879,77 @@ abstract class PhabricatorEditEngine
     $crumbs->addAction($action);
   }
 
+  final public function buildEditEngineCommentView($object) {
+    $config = $this->loadEditEngineConfiguration(null);
+
+    $viewer = $this->getViewer();
+    $object_phid = $object->getPHID();
+
+    $header_text = $this->getCommentViewHeaderText($object);
+    $button_text = $this->getCommentViewButtonText($object);
+
+    $comment_uri = $this->getEditURI($object, 'comment/');
+
+    $view = id(new PhabricatorApplicationTransactionCommentView())
+      ->setUser($viewer)
+      ->setObjectPHID($object_phid)
+      ->setHeaderText($header_text)
+      ->setAction($comment_uri)
+      ->setSubmitButtonName($button_text);
+
+    $draft = PhabricatorVersionedDraft::loadDraft(
+      $object_phid,
+      $viewer->getPHID());
+    if ($draft) {
+      $view->setVersionedDraft($draft);
+    }
+
+    $view->setCurrentVersion($this->loadDraftVersion($object));
+
+    $fields = $this->buildEditFields($object);
+
+    $all_types = array();
+    foreach ($fields as $field) {
+      // TODO: Load draft stuff.
+      $types = $field->getCommentEditTypes();
+      foreach ($types as $type) {
+        $all_types[] = $type;
+      }
+    }
+
+    $view->setEditTypes($all_types);
+
+    return $view;
+  }
+
+  protected function loadDraftVersion($object) {
+    $viewer = $this->getViewer();
+
+    if (!$viewer->isLoggedIn()) {
+      return null;
+    }
+
+    $template = $object->getApplicationTransactionTemplate();
+    $conn_r = $template->establishConnection('r');
+
+    // Find the most recent transaction the user has written. We'll use this
+    // as a version number to make sure that out-of-date drafts get discarded.
+    $result = queryfx_one(
+      $conn_r,
+      'SELECT id AS version FROM %T
+        WHERE objectPHID = %s AND authorPHID = %s
+        ORDER BY id DESC LIMIT 1',
+      $template->getTableName(),
+      $object->getPHID(),
+      $viewer->getPHID());
+
+    if ($result) {
+      return (int)$result['version'];
+    } else {
+      return null;
+    }
+  }
+
 
 /* -(  Responding to HTTP Parameter Requests  )------------------------------ */
 
@@ -914,6 +1006,136 @@ abstract class PhabricatorEditEngine
           'forms for creating objects.'))
       ->addCancelButton($cancel_uri);
   }
+
+  private function buildCommentResponse($object) {
+    $viewer = $this->getViewer();
+
+    if ($this->getIsCreate()) {
+      return new Aphront404Response();
+    }
+
+    $controller = $this->getController();
+    $request = $controller->getRequest();
+
+    if (!$request->isFormPost()) {
+      return new Aphront400Response();
+    }
+
+    $config = $this->loadEditEngineConfiguration(null);
+    $fields = $this->buildEditFields($object);
+
+    $is_preview = $request->isPreviewRequest();
+    $view_uri = $this->getObjectViewURI($object);
+
+    $template = $object->getApplicationTransactionTemplate();
+    $comment_template = $template->getApplicationTransactionCommentObject();
+
+    $comment_text = $request->getStr('comment');
+
+    $actions = $request->getStr('editengine.actions');
+    if ($actions) {
+      $actions = phutil_json_decode($actions);
+    }
+
+    if ($is_preview) {
+      $version_key = PhabricatorVersionedDraft::KEY_VERSION;
+      $request_version = $request->getInt($version_key);
+      $current_version = $this->loadDraftVersion($object);
+      if ($request_version >= $current_version) {
+        $draft = PhabricatorVersionedDraft::loadOrCreateDraft(
+          $object->getPHID(),
+          $viewer->getPHID(),
+          $current_version);
+
+        // TODO: This is just a proof of concept.
+        $draft
+          ->setProperty('temporary.comment', $comment_text)
+          ->setProperty('actions', $actions)
+          ->save();
+      }
+    }
+
+    $xactions = array();
+
+    if ($actions) {
+      $type_map = array();
+      foreach ($fields as $field) {
+        $types = $field->getCommentEditTypes();
+        foreach ($types as $type) {
+          $type_map[$type->getEditType()] = array(
+            'type' => $type,
+            'field' => $field,
+          );
+        }
+      }
+
+      foreach ($actions as $action) {
+        $type = idx($action, 'type');
+        if (!$type) {
+          continue;
+        }
+
+        $spec = idx($type_map, $type);
+        if (!$spec) {
+          continue;
+        }
+
+        $edit_type = $spec['type'];
+        $field = $spec['field'];
+
+        $field->readValueFromComment($action);
+
+        $type_xactions = $edit_type->generateTransactions(
+          $template,
+          array(
+            'value' => $field->getValueForTransaction(),
+          ));
+        foreach ($type_xactions as $type_xaction) {
+          $xactions[] = $type_xaction;
+        }
+      }
+    }
+
+    if (strlen($comment_text) || !$xactions) {
+      $xactions[] = id(clone $template)
+        ->setTransactionType(PhabricatorTransactions::TYPE_COMMENT)
+        ->attachComment(
+          id(clone $comment_template)
+            ->setContent($comment_text));
+    }
+
+    $editor = $object->getApplicationTransactionEditor()
+      ->setActor($viewer)
+      ->setContinueOnNoEffect($request->isContinueRequest())
+      ->setContentSourceFromRequest($request)
+      ->setIsPreview($is_preview);
+
+    try {
+      $xactions = $editor->applyTransactions($object, $xactions);
+    } catch (PhabricatorApplicationTransactionNoEffectException $ex) {
+      return id(new PhabricatorApplicationTransactionNoEffectResponse())
+        ->setCancelURI($view_uri)
+        ->setException($ex);
+    }
+
+    if (!$is_preview) {
+      PhabricatorVersionedDraft::purgeDrafts(
+        $object->getPHID(),
+        $viewer->getPHID(),
+        $this->loadDraftVersion($object));
+    }
+
+    if ($request->isAjax() && $is_preview) {
+      return id(new PhabricatorApplicationTransactionResponse())
+        ->setViewer($viewer)
+        ->setTransactions($xactions)
+        ->setIsPreview($is_preview);
+    } else {
+      return id(new AphrontRedirectResponse())
+        ->setURI($view_uri);
+    }
+  }
+
 
 /* -(  Conduit  )------------------------------------------------------------ */
 

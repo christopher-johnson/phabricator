@@ -69,6 +69,8 @@ final class PhabricatorManiphestApplication extends PhabricatorApplication {
         ),
         'export/(?P<key>[^/]+)/' => 'ManiphestExportController',
         'subpriority/' => 'ManiphestSubpriorityController',
+        $this->getEditRoutePattern('editpro/')
+          => 'ManiphestTaskEditProController',
       ),
     );
   }
@@ -80,16 +82,20 @@ final class PhabricatorManiphestApplication extends PhabricatorApplication {
       return $status;
     }
 
+    $limit = self::MAX_STATUS_ITEMS;
+
     $query = id(new ManiphestTaskQuery())
       ->setViewer($user)
       ->withStatuses(ManiphestTaskStatus::getOpenStatusConstants())
       ->withOwners(array($user->getPHID()))
-      ->setLimit(self::MAX_STATUS_ITEMS);
+      ->setLimit($limit);
+
     $count = count($query->execute());
-    $count_str = self::formatStatusCount(
-      $count,
-      '%s Assigned Tasks',
-      '%d Assigned Task(s)');
+    if ($count >= $limit) {
+      $count_str = pht('%s+ Assigned Task(s)', new PhutilNumber($limit - 1));
+    } else {
+      $count_str = pht('%s Assigned Task(s)', new PhutilNumber($count));
+    }
 
     $type = PhabricatorApplicationStatusView::TYPE_WARNING;
     $status[] = id(new PhabricatorApplicationStatusView())
