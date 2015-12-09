@@ -73,15 +73,9 @@ final class PhabricatorPasteEditEngine
             'title.'))
         ->setAliases(array('lang'))
         ->setTransactionType(PhabricatorPasteTransaction::TYPE_LANGUAGE)
+        ->setIsCopyable(true)
         ->setValue($object->getLanguage())
         ->setOptions($langs),
-      id(new PhabricatorSelectEditField())
-        ->setKey('status')
-        ->setLabel(pht('Status'))
-        ->setDescription(pht('Archive the paste.'))
-        ->setTransactionType(PhabricatorPasteTransaction::TYPE_STATUS)
-        ->setValue($object->getStatus())
-        ->setOptions(PhabricatorPaste::getStatusNameMap()),
       id(new PhabricatorTextAreaEditField())
         ->setKey('text')
         ->setLabel(pht('Text'))

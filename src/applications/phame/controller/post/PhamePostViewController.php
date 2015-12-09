@@ -8,6 +8,7 @@ final class PhamePostViewController extends PhamePostController {
 
   public function handleRequest(AphrontRequest $request) {
     $viewer = $request->getViewer();
+    $moved = $request->getStr('moved');
 
     $post = id(new PhamePostQuery())
       ->setViewer($viewer)
@@ -21,15 +22,12 @@ final class PhamePostViewController extends PhamePostController {
     $blog = $post->getBlog();
 
     $crumbs = $this->buildApplicationCrumbs();
-    if ($blog) {
-      $crumbs->addTextCrumb(
-        $blog->getName(),
-        $this->getApplicationURI('blog/view/'.$blog->getID().'/'));
-    } else {
-      $crumbs->addTextCrumb(
-        pht('[No Blog]'),
-        null);
-    }
+    $crumbs->addTextCrumb(
+      pht('Blogs'),
+      $this->getApplicationURI('blog/'));
+    $crumbs->addTextCrumb(
+      $blog->getName(),
+      $this->getApplicationURI('blog/view/'.$blog->getID().'/'));
     $crumbs->addTextCrumb(
       $post->getTitle(),
       $this->getApplicationURI('post/view/'.$post->getID().'/'));
@@ -54,15 +52,21 @@ final class PhamePostViewController extends PhamePostController {
     $document = id(new PHUIDocumentViewPro())
       ->setHeader($header);
 
+    if ($moved) {
+      $document->appendChild(
+        id(new PHUIInfoView())
+          ->setSeverity(PHUIInfoView::SEVERITY_NOTICE)
+          ->appendChild(pht('Post moved successfully.')));
+    }
+
     if ($post->isDraft()) {
       $document->appendChild(
         id(new PHUIInfoView())
           ->setSeverity(PHUIInfoView::SEVERITY_NOTICE)
           ->setTitle(pht('Draft Post'))
           ->appendChild(
-            pht(
-              'Only you can see this draft until you publish it. '.
-              'Use "Preview or Publish" to publish this post.')));
+            pht('Only you can see this draft until you publish it. '.
+                'Use "Preview" or "Publish" to publish this post.')));
     }
 
     if (!$post->getBlog()) {
@@ -71,9 +75,8 @@ final class PhamePostViewController extends PhamePostController {
           ->setSeverity(PHUIInfoView::SEVERITY_WARNING)
           ->setTitle(pht('Not On A Blog'))
           ->appendChild(
-            pht(
-              'This post is not associated with a blog (the blog may have '.
-              'been deleted). Use "Move Post" to move it to a new blog.')));
+            pht('This post is not associated with a blog (the blog may have '.
+                'been deleted). Use "Move Post" to move it to a new blog.')));
     }
 
     $engine = id(new PhabricatorMarkupEngine())
@@ -166,8 +169,7 @@ final class PhamePostViewController extends PhamePostController {
         ->setIcon('fa-pencil')
         ->setHref($this->getApplicationURI('post/edit/'.$id.'/'))
         ->setName(pht('Edit Post'))
-        ->setDisabled(!$can_edit)
-        ->setWorkflow(!$can_edit));
+        ->setDisabled(!$can_edit));
 
     $actions->addAction(
       id(new PhabricatorActionView())
@@ -175,7 +177,7 @@ final class PhamePostViewController extends PhamePostController {
         ->setHref($this->getApplicationURI('post/move/'.$id.'/'))
         ->setName(pht('Move Post'))
         ->setDisabled(!$can_edit)
-        ->setWorkflow(!$can_edit));
+        ->setWorkflow(true));
 
     $actions->addAction(
       id(new PhabricatorActionView())
@@ -193,7 +195,7 @@ final class PhamePostViewController extends PhamePostController {
           ->setWorkflow(true));
       $actions->addAction(
         id(new PhabricatorActionView())
-          ->setIcon('fa-eye')
+          ->setIcon('fa-desktop')
           ->setHref($this->getApplicationURI('post/preview/'.$id.'/'))
           ->setDisabled(!$can_edit)
           ->setName(pht('Preview in Skin')));
