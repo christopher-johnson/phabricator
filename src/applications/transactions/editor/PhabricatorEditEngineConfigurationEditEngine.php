@@ -14,7 +14,8 @@ final class PhabricatorEditEngineConfigurationEditEngine
 
   public function getTargetEngine() {
     if (!$this->targetEngine) {
-      throw new PhutilInvalidStateException('setTargetEngine');
+      // If we don't have a target engine, assume we're editing ourselves.
+      return new PhabricatorEditEngineConfigurationEditEngine();
     }
     return $this->targetEngine;
   }
@@ -27,6 +28,16 @@ final class PhabricatorEditEngineConfigurationEditEngine
 
   public function getEngineName() {
     return pht('Edit Configurations');
+  }
+
+  public function getSummaryHeader() {
+    return pht('Configure Forms for Configuring Forms');
+  }
+
+  public function getSummaryText() {
+    return pht(
+      'Change how forms in other applications are created and edited. '.
+      'Advanced!');
   }
 
   public function getEngineApplicationClass() {

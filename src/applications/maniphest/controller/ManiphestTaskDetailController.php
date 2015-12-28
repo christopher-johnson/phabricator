@@ -136,8 +136,7 @@ final class ManiphestTaskDetailController extends ManiphestController {
 
     $view = id(new PhabricatorActionListView())
       ->setUser($viewer)
-      ->setObject($task)
-      ->setObjectURI($this->getRequest()->getRequestURI());
+      ->setObject($task);
 
     $view->addAction(
       id(new PhabricatorActionView())
@@ -163,7 +162,10 @@ final class ManiphestTaskDetailController extends ManiphestController {
     $can_create = (bool)$edit_config;
     if ($can_create) {
       $form_key = $edit_config->getIdentifier();
-      $edit_uri = "/task/edit/form/{$form_key}/?parent={$id}&template={$id}";
+      $edit_uri = id(new PhutilURI("/task/edit/form/{$form_key}/"))
+        ->setQueryParam('parent', $id)
+        ->setQueryParam('template', $id)
+        ->setQueryParam('status', ManiphestTaskStatus::getDefaultStatus());
       $edit_uri = $this->getApplicationURI($edit_uri);
     } else {
       // TODO: This will usually give us a somewhat-reasonable error page, but
@@ -206,19 +208,26 @@ final class ManiphestTaskDetailController extends ManiphestController {
       ->setObject($task)
       ->setActionList($actions);
 
-    $view->addProperty(
-      pht('Assigned To'),
-      $task->getOwnerPHID()
-        ? $handles->renderHandle($task->getOwnerPHID())
-        : phutil_tag('em', array(), pht('None')));
+    $owner_phid = $task->getOwnerPHID();
+    if ($owner_phid) {
+      $assigned_to = $handles
+        ->renderHandle($owner_phid)
+        ->setShowHovercard(true);
+    } else {
+      $assigned_to = phutil_tag('em', array(), pht('None'));
+    }
+
+    $view->addProperty(pht('Assigned To'), $assigned_to);
 
     $view->addProperty(
       pht('Priority'),
       ManiphestTaskPriority::getTaskPriorityName($task->getPriority()));
 
-    $view->addProperty(
-      pht('Author'),
-      $handles->renderHandle($task->getAuthorPHID()));
+    $author = $handles
+      ->renderHandle($task->getAuthorPHID())
+      ->setShowHovercard(true);
+
+    $view->addProperty(pht('Author'), $author);
 
     $source = $task->getOriginalEmailSource();
     if ($source) {
@@ -256,7 +265,8 @@ final class ManiphestTaskDetailController extends ManiphestController {
         ->execute();
 
       foreach ($commit_phids as $phid) {
-        $revisions_commits[$phid] = $handles->renderHandle($phid);
+        $revisions_commits[$phid] = $handles->renderHandle($phid)
+          ->setShowHovercard(true);
         $revision_phid = key($drev_edges[$phid][$commit_drev]);
         $revision_handle = $handles->getHandleIfExists($revision_phid);
         if ($revision_handle) {
@@ -264,7 +274,7 @@ final class ManiphestTaskDetailController extends ManiphestController {
           unset($edges[$task_drev][$revision_phid]);
           $revisions_commits[$phid] = hsprintf(
             '%s / %s',
-            $revision_handle->renderLink($revision_handle->getName()),
+            $revision_handle->renderHovercardLink($revision_handle->getName()),
             $revisions_commits[$phid]);
         }
       }
