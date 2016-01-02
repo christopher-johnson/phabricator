@@ -5,6 +5,27 @@ final class PhabricatorProjectEditEngine
 
   const ENGINECONST = 'projects.project';
 
+  private $parentProject;
+  private $milestoneProject;
+
+  public function setParentProject(PhabricatorProject $parent_project) {
+    $this->parentProject = $parent_project;
+    return $this;
+  }
+
+  public function getParentProject() {
+    return $this->parentProject;
+  }
+
+  public function setMilestoneProject(PhabricatorProject $milestone_project) {
+    $this->milestoneProject = $milestone_project;
+    return $this;
+  }
+
+  public function getMilestoneProject() {
+    return $this->milestoneProject;
+  }
+
   public function getEngineName() {
     return pht('Projects');
   }
@@ -22,7 +43,17 @@ final class PhabricatorProjectEditEngine
   }
 
   protected function newEditableObject() {
-    return PhabricatorProject::initializeNewProject($this->getViewer());
+    $project = PhabricatorProject::initializeNewProject($this->getViewer());
+
+    $milestone = $this->getMilestoneProject();
+    if ($milestone) {
+      $default_name = pht(
+        'Milestone %s',
+        new PhutilNumber($milestone->loadNextMilestoneNumber()));
+      $project->setName($default_name);
+    }
+
+    return $project;
   }
 
   protected function newObjectQuery() {
@@ -50,9 +81,49 @@ final class PhabricatorProjectEditEngine
     return $object->getURI();
   }
 
+  protected function getObjectCreateCancelURI($object) {
+    $parent = $this->getParentProject();
+    if ($parent) {
+      $id = $parent->getID();
+      return "/project/subprojects/{$id}/";
+    }
+
+    $milestone = $this->getMilestoneProject();
+    if ($milestone) {
+      $id = $milestone->getID();
+      return "/project/milestones/{$id}/";
+    }
+
+    return parent::getObjectCreateCancelURI($object);
+  }
+
   protected function getCreateNewObjectPolicy() {
     return $this->getApplication()->getPolicy(
       ProjectCreateProjectsCapability::CAPABILITY);
+  }
+
+  protected function willConfigureFields($object, array $fields) {
+    $is_milestone = ($this->getMilestoneProject() || $object->isMilestone());
+
+    $unavailable = array(
+      PhabricatorTransactions::TYPE_VIEW_POLICY,
+      PhabricatorTransactions::TYPE_EDIT_POLICY,
+      PhabricatorTransactions::TYPE_JOIN_POLICY,
+      PhabricatorProjectTransaction::TYPE_ICON,
+      PhabricatorProjectTransaction::TYPE_COLOR,
+    );
+    $unavailable = array_fuse($unavailable);
+
+    if ($is_milestone) {
+      foreach ($fields as $key => $field) {
+        $xaction_type = $field->getTransactionType();
+        if (isset($unavailable[$xaction_type])) {
+          unset($fields[$key]);
+        }
+      }
+    }
+
+    return $fields;
   }
 
   protected function newBuiltinEngineConfigurations() {
@@ -65,6 +136,8 @@ final class PhabricatorProjectEditEngine
     $configuration
       ->setFieldOrder(
         array(
+          'parent',
+          'milestone',
           'name',
           'std:project:internal:description',
           'icon',
@@ -84,7 +157,52 @@ final class PhabricatorProjectEditEngine
     unset($slugs[$object->getPrimarySlug()]);
     $slugs = array_values($slugs);
 
+    $milestone = $this->getMilestoneProject();
+    $parent = $this->getParentProject();
+
+    if ($parent) {
+      $parent_phid = $parent->getPHID();
+    } else {
+      $parent_phid = null;
+    }
+
+    if ($milestone) {
+      $milestone_phid = $milestone->getPHID();
+    } else {
+      $milestone_phid = null;
+    }
+
     return array(
+      id(new PhabricatorHandlesEditField())
+        ->setKey('parent')
+        ->setLabel(pht('Parent'))
+        ->setDescription(pht('Create a subproject of an existing project.'))
+        ->setConduitDescription(
+          pht('Choose a parent project to create a subproject beneath.'))
+        ->setConduitTypeDescription(pht('PHID of the parent project.'))
+        ->setAliases(array('parentPHID'))
+        ->setTransactionType(PhabricatorProjectTransaction::TYPE_PARENT)
+        ->setHandleParameterType(new AphrontPHIDHTTPParameterType())
+        ->setSingleValue($parent_phid)
+        ->setIsReorderable(false)
+        ->setIsDefaultable(false)
+        ->setIsLockable(false)
+        ->setIsLocked(true),
+      id(new PhabricatorHandlesEditField())
+        ->setKey('milestone')
+        ->setLabel(pht('Milestone Of'))
+        ->setDescription(pht('Parent project to create a milestone for.'))
+        ->setConduitDescription(
+          pht('Choose a parent project to create a new milestone for.'))
+        ->setConduitTypeDescription(pht('PHID of the parent project.'))
+        ->setAliases(array('milestonePHID'))
+        ->setTransactionType(PhabricatorProjectTransaction::TYPE_MILESTONE)
+        ->setHandleParameterType(new AphrontPHIDHTTPParameterType())
+        ->setSingleValue($milestone_phid)
+        ->setIsReorderable(false)
+        ->setIsDefaultable(false)
+        ->setIsLockable(false)
+        ->setIsLocked(true),
       id(new PhabricatorTextEditField())
         ->setKey('name')
         ->setLabel(pht('Name'))

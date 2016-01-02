@@ -88,6 +88,10 @@ final class PhabricatorProject extends PhabricatorProjectDAO
   }
 
   public function getPolicy($capability) {
+    if ($this->isMilestone()) {
+      return $this->getParentProject()->getPolicy($capability);
+    }
+
     switch ($capability) {
       case PhabricatorPolicyCapability::CAN_VIEW:
         return $this->getViewPolicy();
@@ -99,6 +103,12 @@ final class PhabricatorProject extends PhabricatorProjectDAO
   }
 
   public function hasAutomaticCapability($capability, PhabricatorUser $viewer) {
+    if ($this->isMilestone()) {
+      return $this->getParentProject()->hasAutomaticCapability(
+        $capability,
+        $viewer);
+    }
+
     $can_edit = PhabricatorPolicyCapability::CAN_EDIT;
 
     switch ($capability) {
@@ -201,20 +211,11 @@ final class PhabricatorProject extends PhabricatorProjectDAO
         'projectPathKey' => 'bytes4',
       ),
       self::CONFIG_KEY_SCHEMA => array(
-        'key_phid' => null,
-        'phid' => array(
-          'columns' => array('phid'),
-          'unique' => true,
-        ),
         'key_icon' => array(
           'columns' => array('icon'),
         ),
         'key_color' => array(
           'columns' => array('color'),
-        ),
-        'name' => array(
-          'columns' => array('name'),
-          'unique' => true,
         ),
         'key_milestone' => array(
           'columns' => array('parentProjectPHID', 'milestoneNumber'),
@@ -435,6 +436,68 @@ final class PhabricatorProject extends PhabricatorProjectDAO
     }
 
     return $ancestors;
+  }
+
+  public function supportsEditMembers() {
+    if ($this->isMilestone()) {
+      return false;
+    }
+
+    if ($this->getHasSubprojects()) {
+      return false;
+    }
+
+    return true;
+  }
+
+  public function supportsMilestones() {
+    if ($this->isMilestone()) {
+      return false;
+    }
+
+    return true;
+  }
+
+  public function supportsSubprojects() {
+    if ($this->isMilestone()) {
+      return false;
+    }
+
+    return true;
+  }
+
+  public function loadNextMilestoneNumber() {
+    $current = queryfx_one(
+      $this->establishConnection('w'),
+      'SELECT MAX(milestoneNumber) n
+        FROM %T
+        WHERE parentProjectPHID = %s',
+      $this->getTableName(),
+      $this->getPHID());
+
+    if (!$current) {
+      $number = 1;
+    } else {
+      $number = (int)$current['n'] + 1;
+    }
+
+    return $number;
+  }
+
+  public function getDisplayIcon() {
+    if ($this->isMilestone()) {
+      return 'fa-map-marker';
+    }
+
+    return $this->getIcon();
+  }
+
+  public function getDisplayColor() {
+    if ($this->isMilestone()) {
+      return self::DEFAULT_COLOR;
+    }
+
+    return $this->getColor();
   }
 
 
